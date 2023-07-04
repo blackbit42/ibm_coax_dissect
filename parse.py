@@ -77,6 +77,7 @@ def interp_packet(packet, response, prev_cmd):
         0x04: "LOAD ADDRESS COUNTER HIGH",
         0x14: "LOAD ADDRESS COUNTER LOW",
         0x08: "START OPERATION",
+        0x1a: "LOAD SECONDARY CONTROL REGISTER",
         0x1c: "DIAGNOSTIC RESET"
     }
 
