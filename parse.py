@@ -87,6 +87,47 @@ TCA_MAP = {
 }
 
 
+class WCUS_Conditions(Enum):
+    # Input Inhibit
+    MACHINE_CHECK = 0x01
+    COMMUN_CHECK_REMINDER = 0x02
+    PROGRAM_CHECK = 0x03
+    # Readiness Group
+    CU_READY = 0x10
+    # Identity
+    DEVICE_IDENTIFICATION = 0x20
+    # Reminders
+    COMMUNICATIONS_CHECK = 0x30
+    NO_REMINDER = 0x31
+    DISK_NOT_READY_CO = 0x60
+    DISK_NOT_READY_CC = 0x61
+    # LU Status
+    LU_ACTIVE = 0x40
+    LU_NOT_ACTIVE = 0x41
+    RTM_PARAMETERS = 0x42
+    # Local Copy
+    REQUEST_QUEUED = 0x51
+    LONG_TERM_BUSY = 0x52
+    FIXME = 0x53                      # XXX FIXME
+    INVALID_PRINTER_NUMBER = 0x54
+    ASSIGNMENT_NOT_ALLOWED = 0x55
+    PRINTER_ASSIGNED = 0x56
+    PRINTER_AVAILABLE = 0x57
+    PRINTING_STARTED = 0x58
+    REQUEST_DEQUEUED = 0x59
+    LOCAL_COPY_UNCONFIGURED = 0x5a
+    PRINT_COMPLETE = 0x5b
+    PRINTER_OPERATIONAL = 0x5c
+    # Disk Completion
+    DISK_COMPLETION1 = 0x70
+    DISK_COMPLETION2 = 0x71
+
+
+WCUS_C_MAP = {
+        **{field.value: field for field in WCUS_Conditions}
+}
+
+
 class Function_Requests(Enum):
     CNOP = 0x01    # Control No-Operation
     WCUS = 0x02    # Write Control Unit Status
@@ -270,17 +311,18 @@ class TerminalState():
                   self.tca_buffer[TCA_Fields.CUFRP2.value]
             print("    Number of Data segments = %.4x" % cufrp12)
             cufrp34 = (self.tca_buffer[TCA_Fields.CUFRP3.value] << 8) | \
-                  self.tca_buffer[TCA_Fields.CUFRP4.value]
+                self.tca_buffer[TCA_Fields.CUFRP4.value]
             print("    Maximum Segment Length = %.4x" % cufrp34)
             print("    Logical Terminal Address = %.2x" %
                   self.tca_buffer[TCA_Fields.CULTAD.value])
             cudp = (self.tca_buffer[TCA_Fields.CUDP.value] << 8) | \
-                    self.tca_buffer[TCA_Fields.CUDP.value + 1]
+                self.tca_buffer[TCA_Fields.CUDP.value + 1]
             print("    Address of Data Area = %.4x" % cudp)
 
-
         if cufrv == Function_Requests.WCUS.value:
-            pass
+            cufrp1 = self.tca_buffer[TCA_Fields.CUFRP1.value]
+            if cufrp1 in WCUS_C_MAP.keys():
+                print("    WCUS Condition = %s" % WCUS_C_MAP[cufrp1])
 
 def main():
 
