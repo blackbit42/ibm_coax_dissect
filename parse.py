@@ -230,6 +230,23 @@ class TerminalState():
                 print("    File retrieved unknown value %.1x" % self.tca_buffer[TCA_Fields.CUFRP2.value])
             print("    Address of Data Area: %.4x" % self.tca_buffer[TCA_Fields.CUDP.value])
 
+        if cufrv == Function_Requests.RDAT.value:
+            cufrp12 = (self.tca_buffer[TCA_Fields.CUFRP1.value] << 8) | \
+                  self.tca_buffer[TCA_Fields.CUFRP2.value]
+            print("    Number of Data segments = %.4x" % cufrp12)
+            cufrp34 = (self.tca_buffer[TCA_Fields.CUFRP3.value] << 8) | \
+                  self.tca_buffer[TCA_Fields.CUFRP4.value]
+            print("    Maximum Segment Length = %.4x" % cufrp34)
+            print("    Logical Terminal Address = %.2x" %
+                  self.tca_buffer[TCA_Fields.CULTAD.value])
+            cudp = (self.tca_buffer[TCA_Fields.CUDP.value] << 8) | \
+                    self.tca_buffer[TCA_Fields.CUDP.value + 1]
+            print("    Address of Data Area = %.4x" % cudp)
+
+
+        if cufrv == Function_Requests.WCUS.value:
+            pass
+
 def main():
 
     if len(sys.argv) != 2:
