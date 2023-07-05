@@ -340,6 +340,7 @@ class TerminalState():
                 print("    WCUS Condition = %s" % WCUS_C_MAP[cufrp1])
             else:
                 print("    WCUS Condition %.2x unknown" % cufrp1)
+
             if cufrp1 == WCUS_Conditions.DEVICE_IDENTIFICATION.value:
                 print("    Controller Identification Characters: ", end="")
                 for i in range(0x82, 0x84):
@@ -386,7 +387,15 @@ class TerminalState():
                 for i in range(0x98, 0xa8):
                     print(ebcdic2ascii[self.tca_buffer[i]], end="")
                 print()
-                pass
+
+            if cufrp1 == WCUS_Conditions.CU_READY.value:
+                cufrp2 = self.tca_buffer[TCA_Fields.CUFRP2.value]
+                if cufrp2 == 0x00:
+                    print("    DSL Allowed")
+                elif cufrp2 == 0x02:
+                    print("    DSL Not Allowed")
+                else:
+                    print("    Unknown value %.2x in CU_READY CUFRP2" % cufrp2)
 
         if cufrv == Function_Requests.RDAT.value:
             cufrp12 = (self.tca_buffer[TCA_Fields.CUFRP1.value] << 8) | \
