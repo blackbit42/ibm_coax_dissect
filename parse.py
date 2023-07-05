@@ -467,6 +467,7 @@ def extract_bytes(words):
     return bytes(r)
 
 def pretty_print(data):
+    print("Length of data: 0x%x" % len(data))
     line = ""
     count = 0
     for (i,x) in enumerate(data):
