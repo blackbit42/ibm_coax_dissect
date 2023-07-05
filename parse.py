@@ -144,27 +144,33 @@ class Function_Requests(Enum):
     RPID = 0x0d    # Read Printer Identification
     # Bytes 0x0e..0xff Reserved
 
+
 FR_MAP = {
     **{fr.value: fr for fr in Function_Requests}
 }
 
 
-class TerminalState():
+class Command_Names(Enum):
+    POLL = 0x01
+    RESET = 0x02
+    READ_DATA = 0x03
+    LOAD_ADDRESS_COUNTER_HIGH = 0x04
+    START_OPERATION = 0x08
+    READ_TERMINAL_ID = 0x09
+    READ_MULTIPLE = 0x0b
+    WRITE_DATA = 0x0c
+    POLL_ACK = 0x11
+    LOAD_ADDRESS_COUNTER_LOW = 0x14
+    LOAD_SECONDARY_CONTROL_REGISTER = 0x1a
+    DIAGNOSTIC_RESET = 0x1c
 
-    command_names = {
-        0x01: "POLL",
-        0x03: "READ DATA",
-        0x09: "READ TERMINAL ID",
-        0x11: "POLL/ACK",
-        0x0b: "READ MULTIPLE",
-        0x02: "RESET",
-        0x0c: "WRITE DATA",
-        0x04: "LOAD ADDRESS COUNTER HIGH",
-        0x14: "LOAD ADDRESS COUNTER LOW",
-        0x08: "START OPERATION",
-        0x1a: "LOAD SECONDARY CONTROL REGISTER",
-        0x1c: "DIAGNOSTIC RESET"
-    }
+
+CN_MAP = {
+    **{cn.value: cn for cn in Command_Names}
+}
+
+
+class TerminalState():
 
     def __init__(self):
         self.tca_buffer = [0] * 4096
@@ -226,13 +232,13 @@ class TerminalState():
             
             self.prev_cmd = cmd
 
-            if cmd == 0x01:
+            if cmd == Command_Names.POLL.value:
                 return
 
-            if cmd not in TerminalState.command_names.keys():
+            if cmd not in CN_MAP.keys():
                 print("%s (0x%.2x)" % ("###UNKNOWN###", cmd))
             else:
-                print("%s" % (TerminalState.command_names[cmd]))
+                print("%s" % (CN_MAP[cmd]))
 
             payload = None
             response_payload = None
@@ -240,28 +246,37 @@ class TerminalState():
             if len(packet) > 1:
                 payload = extract_bytes(packet[1:])
                 pretty_print(payload)
-            if cmd in [0x03, 0x09, 0x0b]:       # Read commands excluding the polls
+            # Read commands excluding the polls
+            if cmd in [
+                    Command_Names.READ_DATA.value,
+                    Command_Names.READ_TERMINAL_ID.value,
+                    Command_Names.READ_MULTIPLE.value,
+                    ]:
+
                 response_payload = extract_bytes(response)
                 pretty_print(response_payload)
 
-            if cmd == 0x04:
+            if cmd == Command_Names.LOAD_ADDRESS_COUNTER_HIGH.value:
                 self.set_address_counter_high(payload)
 
-            if cmd == 0x14:
+            if cmd == Command_Names.LOAD_ADDRESS_COUNTER_LOW.value:
                 self.set_address_counter_low(payload)
 
-            if cmd in [0x03, 0x0b]:
+            if cmd in [
+                    Command_Names.READ_DATA.value,
+                    Command_Names.READ_MULTIPLE.value,
+                    ]:
                 self.update_tca_buffer(response_payload)
 
-            if cmd == 0x0c and payload is not None:
+            if cmd == Command_Names.WRITE_DATA.value and payload is not None:
                 self.update_tca_buffer(payload)
 
-            if cmd == 0x08:
+            if cmd == Command_Names.START_OPERATION.value:
                 self.print_function_request()
             
 
         else:
-            print("Continuing '%s'" % (TerminalState.command_names[self.prev_cmd]))
+            print("Continuing '%s'" % (CN_MAP[self.prev_cmd]))
             payload = extract_bytes(packet)
             pretty_print(payload)
             if self.prev_cmd == 0x0c:
