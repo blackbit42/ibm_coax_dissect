@@ -20,6 +20,100 @@ ebcdic2ascii = [
     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ' ', ' ', ' ', ' ', ' ', ' '
 ]
 
+class TerminalState():
+
+    command_names = {
+        0x01: "POLL",
+        0x03: "READ DATA",
+        0x09: "READ TERMINAL ID",
+        0x11: "POLL/ACK",
+        0x0b: "READ MULTIPLE",
+        0x02: "RESET",
+        0x0c: "WRITE DATA",
+        0x04: "LOAD ADDRESS COUNTER HIGH",
+        0x14: "LOAD ADDRESS COUNTER LOW",
+        0x08: "START OPERATION",
+        0x1a: "LOAD SECONDARY CONTROL REGISTER",
+        0x1c: "DIAGNOSTIC RESET"
+    }
+
+    def __init__(self):
+        self.tca_buffer = [0] * 4096
+        self.address_counter = 0
+        self.secondary_control_register = 0
+        self.prev_cmd = None
+
+    def update_tca_buffer(self, data):
+        if not isinstance(data, bytes):
+            raise TypeError("data must be bytes")
+
+        for x in data:
+            self.tca_buffer[self.address_counter] = x
+            self.address_counter += 1
+
+    def set_address_counter_high(self, ah):
+        if not isinstance(ah, bytes):
+            raise TypeError("ah must be bytes")
+        if len(ah) != 1:
+                print("Load address counter high has unexpected number of payload bytes")
+        else:
+            self.address_counter = (self.address_counter & 0xff) | (ah[0] << 8)
+
+    def set_address_counter_low(self, al):
+        if not isinstance(al, bytes):
+            raise TypeError("al must be bytes")
+        if len(al) != 1:
+                print("Load address counter low has unexpected number of payload bytes")
+        else:
+            self.address_counter = (self.address_counter & 0xff00) | (al[0])
+
+    def interp_packet(self, packet, response):
+        if (packet[0] & 0x002):
+            # This is a new command
+
+            addr = (packet[0] & 0x700) >> 8
+            cmd = (packet[0] & 0x0F8) >> 3
+            
+            self.prev_cmd = cmd
+
+            if cmd == 0x01:
+                return
+
+            if cmd not in TerminalState.command_names.keys():
+                print("%s (0x%.2x)" % ("###UNKNOWN###", cmd))
+            else:
+                print("%s" % (TerminalState.command_names[cmd]))
+
+            payload = None
+            response_payload = None
+
+            if len(packet) > 1:
+                payload = extract_bytes(packet[1:])
+                pretty_print(payload)
+            if cmd in [0x03, 0x09, 0x0b]:       # Read commands excluding the polls
+                response_payload = extract_bytes(response)
+                pretty_print(response_payload)
+
+            if cmd == 0x04:
+                self.set_address_counter_high(payload)
+
+            if cmd == 0x14:
+                self.set_address_counter_low(payload)
+
+            if cmd in [0x03, 0x0b]:
+                self.update_tca_buffer(response_payload)
+
+            if cmd == 0x0c and payload is not None:
+                self.update_tca_buffer(payload)
+            
+
+        else:
+            print("Continuing '%s'" % (TerminalState.command_names[self.prev_cmd]))
+            payload = extract_bytes(packet)
+            pretty_print(payload)
+            if self.prev_cmd == 0x0c:
+                self.update_tca_buffer(payload)
+
 def main():
 
     if len(sys.argv) != 2:
@@ -31,7 +125,8 @@ def main():
         is_response = False
         packet = []
         response = []
-        prev_cmd = None
+
+        state = TerminalState()
 
         for x, line in enumerate(f.readlines()):
             if x >= 2:
@@ -58,57 +153,12 @@ def main():
                 if tlast:
 
                     if is_response:
-                        prev_cmd = interp_packet(packet, response, prev_cmd)
+                        state.interp_packet(packet, response)
 
                     counter = 0
                 else:
                     counter += 1
-
-
-def interp_packet(packet, response, prev_cmd):
-    command_names = {
-        0x01: "POLL",
-        0x03: "READ DATA",
-        0x09: "READ TERMINAL ID",
-        0x11: "POLL/ACK",
-        0x0b: "READ MULTIPLE",
-        0x02: "RESET",
-        0x0c: "WRITE DATA",
-        0x04: "LOAD ADDRESS COUNTER HIGH",
-        0x14: "LOAD ADDRESS COUNTER LOW",
-        0x08: "START OPERATION",
-        0x1a: "LOAD SECONDARY CONTROL REGISTER",
-        0x1c: "DIAGNOSTIC RESET"
-    }
-
-    if (packet[0] & 0x002):
-        # This is a new command
-
-        addr = (packet[0] & 0x700) >> 8
-        cmd = (packet[0] & 0x0F8) >> 3
-
-        if cmd == 0x01:
-            return cmd
-
-        if cmd not in command_names.keys():
-            print("%s (0x%.2x)" % ("###UNKNOWN###", cmd))
-        else:
-            print("%s" % (command_names[cmd]))
-
-        if len(packet) > 1:
-            payload = extract_bytes(packet[1:])
-            pretty_print(payload)
-        if cmd in [0x03, 0x09, 0x0b]:
-            pretty_print(extract_bytes(response))
-
-        return cmd
-
-    else:
-
-        print("Continuing '%s'" % (command_names[prev_cmd]))
-        pretty_print(extract_bytes(packet))
-
-        return prev_cmd
+        pretty_print(state.tca_buffer)
 
 def extract_bytes(words):
     r = []
