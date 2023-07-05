@@ -1,5 +1,6 @@
 
-import sys, os, struct
+import sys
+from enum import Enum
 
 ebcdic2ascii = [
     ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
@@ -20,6 +21,93 @@ ebcdic2ascii = [
     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ' ', ' ', ' ', ' ', ' ', ' '
 ]
 
+
+class TCA_Fields(Enum):
+
+    # Device owned area.
+    DPASTAT = 0x00  # Asynchronous status present flag
+    DPSSTAT = 0x01  # Synchronous status present flag
+    DSSV = 0x02     # Synchronous status value
+    DSSP = 0x03     # Synchronous status paramenter 1
+    DSSP2 = 0x04    # Synchronous status paramenter 2
+    DSSP3 = 0x05    # Synchronous status paramenter 3
+    DALTAD = 0x06   # Logical Terminal Address
+    DAEV = 0x07     # Asyncronous status event value
+    DAEP = 0x08     # Asyncronous status event parameter 1
+    DAEP2 = 0x09    # Asyncronous status event parameter 2
+    DAEP3 = 0x0a    # Asyncronous status event parameter 3
+    DAEP4 = 0x0b    # Asyncronous status event parameter 4
+    DTID1 = 0x0c    # Terminal ID
+    DTID2 = 0x0d    # Product ID Qualifier
+    DTID3 = 0x0e    # Reserved
+    DTID4 = 0x0f    # Reserved
+    DBUF = 0x10     # Device buffer size in bytes (Valid after POR)
+    # Bytes 0x12..0x1f Reserved
+    EXFLT = 0x20    # LT Address
+    EXFRQ = 0x21    # Expedited Status value
+    EXFP1 = 0x22    # Expedited Status paramenter 1
+    EXFP2 = 0x23    # Expedited Status paramenter 2
+    EXFP3 = 0x24    # Expedited Status paramenter 3
+    EXFP4 = 0x25    # Expedited Status paramenter 4
+    EXFAK = 0x26    # Post/Acknowledgement flag byte
+    # Bytes 0x27..0x3f Reserved
+
+    # Controller owned area.
+    CUDP = 0x40     # Data address within the device buffer
+    CULTAD = 0x42   # Logical Terminal Address
+    CUFRV = 0x44    # Syncronous function request value
+    CUSYN = 0x45    # Request synchronization switch (toggle)
+    CUFRP1 = 0x46   # Synchronous Function Request Paramenter 1
+    CUFRP2 = 0x47   # Synchronous Function Request Paramenter 2
+    CUFRP3 = 0x48   # Synchronous Function Request Paramenter 3
+    CUFRP4 = 0x49   # Synchronous Function Request Paramenter 4
+    # Bytes 0x4a..0x4f Reserved
+    CUDPORT = 0x50  # Device Port Number (0 - 31)
+    CUAT = 0x51     # Control unit host attachment protocol
+    CUDSER = 0x52   # Error code value for last-ditch-command-queue
+    CULTA1 = 0x54   # LT Address 1
+    CULTA2 = 0x55   # LT Address 2
+    CULTA3 = 0x56   # LT Address 3
+    CULTA4 = 0x57   # LT Address 4
+    CULTA5 = 0x58   # LT Address 5
+    # Bytes 0x59..0x5b Reserved
+    EXFD1 = 0x5c    # Expedited Status Response paramenter 1 (if needed)
+    EXFD2 = 0x5d    # Expedited Status Response paramenter 2 (if needed)
+    EXFD3 = 0x5e    # Expedited Status Response paramenter 3 (if needed)
+    EXFD4 = 0x5f    # Expedited Status Response paramenter 4 (if needed)
+    EXTIME = 0x60   # Host transaction timing
+    CUDSL = 0x61    # DSL Type
+    # Bytes 0x62..0x7d Reserved
+    CUSLVL = 0x7e   # Controller TCA Support Level
+    CUDATA = 0x80   # Data Area
+
+
+TCA_MAP = {
+        **{field.value: field for field in TCA_Fields}
+}
+
+
+class Function_Requests(Enum):
+    CNOP = 0x01    # Control No-Operation
+    WCUS = 0x02    # Write Control Unit Status
+    WDAT = 0x03    # Write Data from Host
+    WDBD = 0x04    # Write Data-Base Data
+    RDCOPY = 0x05  # Read block of SNA Character String (SCS)
+    WLCC = 0x06    # Write Local Channel Command
+    LOCK = 0x07    # Non-SNA host selection, device ready request
+    RDAT = 0x08    # Generate inbound (Read) Data for host
+    WCTL = 0x09    # Write printer Characteristics for Local Copy
+    PDAT = 0x0a    # Prepare read Data prior to host notification
+    CTCCS = 0x0b   # Terminate Chained Command Sequence
+    RDBD = 0x0c    # Request Data-Base Data
+    RPID = 0x0d    # Read Printer Identification
+    # Bytes 0x0e..0xff Reserved
+
+FR_MAP = {
+    **{fr.value: fr for fr in Function_Requests}
+}
+
+
 class TerminalState():
 
     command_names = {
@@ -35,22 +123,6 @@ class TerminalState():
         0x08: "START OPERATION",
         0x1a: "LOAD SECONDARY CONTROL REGISTER",
         0x1c: "DIAGNOSTIC RESET"
-    }
-
-    function_requests = {
-        0x01: "CNOP",
-        0x02: "WCUS",
-        0x03: "WDAT", 
-        0x04: "WDBD", 
-        0x05: "RDCOPY", 
-        0x06: "WLCC", 
-        0x07: "LOCK", 
-        0x08: "RDAT", 
-        0x09: "WCTL", 
-        0x0a: "PDAT", 
-        0x0b: "CTCCS", 
-        0x0c: "RDBD", 
-        0x0d: "RPID" 
     }
 
     def __init__(self):
@@ -74,6 +146,7 @@ class TerminalState():
             # Check to see if we are looking for the Data area Length and Flags and if it is not clean
             if not self.da_length_read and self.last_read_dp is not None and (sum(self.dirty_flags[self.last_read_dp:self.last_read_dp+4]) == 0):
                 self.da_length_read = True
+                # The length in this register includes the 4 bytes of header for a data area
                 actual_length = (self.tca_buffer[self.last_read_dp] >> 16) | self.tca_buffer[self.last_read_dp+1]
                 # Now that we know the length, mark the rest of the data area as dirty
                 for x in range(4, actual_length):
@@ -155,37 +228,42 @@ class TerminalState():
 
     def print_function_request(self):
         cufrv = self.tca_buffer[0x44]
-        if cufrv not in TerminalState.function_requests.keys():
+        if cufrv not in FR_MAP.keys():
             print("CU Function Request: Unknown (%.2x)" % (cufrv))
             return
 
-        print("CU Function Request: %s" % (TerminalState.function_requests[cufrv]))
+        print("CU Function Request: %s" % (FR_MAP[cufrv]))
 
-        if cufrv == 0x03:
-            print("    Logical Terminal = %.2x" % self.tca_buffer[0x42])
-            cudp = (self.tca_buffer[0x40] << 8) | self.tca_buffer[0x41]
+        cudp = (self.tca_buffer[TCA_Fields.CUDP.value] << 8) | self.tca_buffer[TCA_Fields.CUDP.value + 1]
+
+        if cufrv == Function_Requests.WDAT.value:
+            print("    Logical Terminal = %.2x" % self.tca_buffer[TCA_Fields.CULTAD.value])
             print("    Data Pointer = %.4x" % cudp)
             length = (self.tca_buffer[cudp] << 8) | self.tca_buffer[cudp+1]
             flags = (self.tca_buffer[cudp+2] << 8) | self.tca_buffer[cudp+3]
             print("    Length = %.4x" % length)
             print("    Flags = %.4x" % flags)
 
-        if cufrv == 0x04:
-            cudp = (self.tca_buffer[0x40] << 8) | self.tca_buffer[0x41]
-            print("    Data Pointer = %.4x" % cudp)
-            length = (self.tca_buffer[cudp] << 8) | self.tca_buffer[cudp+1]
-            flags = (self.tca_buffer[cudp+2] << 8) | self.tca_buffer[cudp+3]
-            print("    Length = %.4x" % length)
-            print("    Flags = %.4x" % flags)
-            print("    File ID = %.2x" % self.tca_buffer[0x46])
-
-        if cufrv == 0x08:
-            cudp = (self.tca_buffer[0x40] << 8) | self.tca_buffer[0x41]
+        if cufrv == Function_Requests.RDAT.value:
             self.last_read_dp = cudp
             self.da_length_read = False
-            self.dirty_flags[0x01] = 1
+            self.dirty_flags[TCA_Fields.DPSSTAT.value] = 1
             self.dirty_flags[cudp:cudp+4] = [1, 1, 1, 1]
             print("    Data Pointer = %.4x" % cudp)
+
+        if cufrv == Function_Requests.WDBD.value:
+            print("    File Identifier = %.2x" % self.tca_buffer[TCA_Fields.CUFRP1.value])
+            if self.tca_buffer[TCA_Fields.CUFRP2.value] == 0x00:
+                print("    File retrieved from Disk")
+            elif self.tca_buffer[TCA_Fields.CUFRP2.value] == 0x80:
+                print("    File retrieved from CU Memory")
+            else:
+                print("    File retrieved unknown value %.1x" % self.tca_buffer[TCA_Fields.CUFRP2.value])
+            print("    Address of Data Area: %.4x" % (cudp))
+            length = (self.tca_buffer[cudp] << 8) | self.tca_buffer[cudp+1]
+            flags = (self.tca_buffer[cudp+2] << 8) | self.tca_buffer[cudp+3]
+            print("    Length: %.4x" % length)
+            print("    Flags: %.4x" % flags)
 
 def main():
 
