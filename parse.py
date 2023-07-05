@@ -55,9 +55,12 @@ class TerminalState():
 
     def __init__(self):
         self.tca_buffer = [0] * 4096
+        self.dirty_flags = [0] * 4096
         self.address_counter = 0
         self.secondary_control_register = 0
         self.prev_cmd = None
+        self.last_read_dp = None
+        self.da_length_read = False
 
     def update_tca_buffer(self, data):
         if not isinstance(data, bytes):
@@ -65,7 +68,24 @@ class TerminalState():
 
         for x in data:
             self.tca_buffer[self.address_counter] = x
+            self.dirty_flags[self.address_counter] = 0
             self.address_counter += 1
+
+            # Check to see if we are looking for the Data area Length and Flags and if it is not clean
+            if not self.da_length_read and self.last_read_dp is not None and (sum(self.dirty_flags[self.last_read_dp:self.last_read_dp+4]) == 0):
+                self.da_length_read = True
+                actual_length = (self.tca_buffer[self.last_read_dp] >> 16) | self.tca_buffer[self.last_read_dp+1]
+                # Now that we know the length, mark the rest of the data area as dirty
+                for x in range(4, actual_length):
+                    self.dirty_flags[self.last_read_dp+x] = 1
+                    
+        # Check to see if the data portion of the data area is now clean
+        if self.last_read_dp is not None and (sum(self.dirty_flags) == 0):
+            actual_length = (self.tca_buffer[self.last_read_dp] >> 16) | self.tca_buffer[self.last_read_dp+1] - 4
+            print("RDAT Completed:")
+            print("    Actual length returned = %d" % (actual_length))
+            pretty_print(self.tca_buffer[self.last_read_dp+4:self.last_read_dp+4+actual_length])
+            self.last_read_dp = None
 
     def set_address_counter_high(self, ah):
         if not isinstance(ah, bytes):
@@ -146,7 +166,26 @@ class TerminalState():
             cudp = (self.tca_buffer[0x40] << 8) | self.tca_buffer[0x41]
             print("    Data Pointer = %.4x" % cudp)
             length = (self.tca_buffer[cudp] << 8) | self.tca_buffer[cudp+1]
+            flags = (self.tca_buffer[cudp+2] << 8) | self.tca_buffer[cudp+3]
             print("    Length = %.4x" % length)
+            print("    Flags = %.4x" % flags)
+
+        if cufrv == 0x04:
+            cudp = (self.tca_buffer[0x40] << 8) | self.tca_buffer[0x41]
+            print("    Data Pointer = %.4x" % cudp)
+            length = (self.tca_buffer[cudp] << 8) | self.tca_buffer[cudp+1]
+            flags = (self.tca_buffer[cudp+2] << 8) | self.tca_buffer[cudp+3]
+            print("    Length = %.4x" % length)
+            print("    Flags = %.4x" % flags)
+            print("    File ID = %.2x" % self.tca_buffer[0x46])
+
+        if cufrv == 0x08:
+            cudp = (self.tca_buffer[0x40] << 8) | self.tca_buffer[0x41]
+            self.last_read_dp = cudp
+            self.da_length_read = False
+            self.dirty_flags[0x01] = 1
+            self.dirty_flags[cudp:cudp+4] = [1, 1, 1, 1]
+            print("    Data Pointer = %.4x" % cudp)
 
 def main():
 
