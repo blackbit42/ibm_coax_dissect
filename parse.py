@@ -37,6 +37,22 @@ class TerminalState():
         0x1c: "DIAGNOSTIC RESET"
     }
 
+    function_requests = {
+        0x01: "CNOP",
+        0x02: "WCUS",
+        0x03: "WDAT", 
+        0x04: "WDBD", 
+        0x05: "RDCOPY", 
+        0x06: "WLCC", 
+        0x07: "LOCK", 
+        0x08: "RDAT", 
+        0x09: "WCTL", 
+        0x0a: "PDAT", 
+        0x0b: "CTCCS", 
+        0x0c: "RDBD", 
+        0x0d: "RPID" 
+    }
+
     def __init__(self):
         self.tca_buffer = [0] * 4096
         self.address_counter = 0
@@ -105,6 +121,9 @@ class TerminalState():
 
             if cmd == 0x0c and payload is not None:
                 self.update_tca_buffer(payload)
+
+            if cmd == 0x08:
+                self.print_function_request()
             
 
         else:
@@ -113,6 +132,21 @@ class TerminalState():
             pretty_print(payload)
             if self.prev_cmd == 0x0c:
                 self.update_tca_buffer(payload)
+
+    def print_function_request(self):
+        cufrv = self.tca_buffer[0x44]
+        if cufrv not in TerminalState.function_requests.keys():
+            print("CU Function Request: Unknown (%.2x)" % (cufrv))
+            return
+
+        print("CU Function Request: %s" % (TerminalState.function_requests[cufrv]))
+
+        if cufrv == 0x03:
+            print("    Logical Terminal = %.2x" % self.tca_buffer[0x42])
+            cudp = (self.tca_buffer[0x40] << 8) | self.tca_buffer[0x41]
+            print("    Data Pointer = %.4x" % cudp)
+            length = (self.tca_buffer[cudp] << 8) | self.tca_buffer[cudp+1]
+            print("    Length = %.4x" % length)
 
 def main():
 
