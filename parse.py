@@ -338,6 +338,55 @@ class TerminalState():
             cufrp1 = self.tca_buffer[TCA_Fields.CUFRP1.value]
             if cufrp1 in WCUS_C_MAP.keys():
                 print("    WCUS Condition = %s" % WCUS_C_MAP[cufrp1])
+            else:
+                print("    WCUS Condition %.2x unknown" % cufrp1)
+            if cufrp1 == WCUS_Conditions.DEVICE_IDENTIFICATION.value:
+                print("    Controller Identification Characters: ", end="")
+                for i in range(0x82, 0x84):
+                    print(ebcdic2ascii[self.tca_buffer[i]], end="")
+                print()
+                print("    Device Type of Controller: ", end="")
+                for i in range(0x84, 0x88):
+                    print(ebcdic2ascii[self.tca_buffer[i]], end="")
+                print()
+                high, low = self.tca_buffer[0x88] >> 4, self.tca_buffer[0x88] & 0x0f
+                if low == 0x01:
+                    print("    Hardware or Microcode")
+                elif low == 0x0e:
+                    print("    Customer Programmable Machine")
+                else:
+                    print("    Unknown value %.2x in low nibble of 0x88" % low)
+                if high == 0x01:
+                    print("    IBM Machine")
+                elif high == 0x09:
+                    print("    Non-IBM Machine")
+                else:
+                    print("    Unknown value %.2x in high nibble of 0x88" %
+                          high)
+
+                print("    Model Number: ", end="")
+                for i in range(0x89, 0x8c):
+                    print(ebcdic2ascii[self.tca_buffer[i]], end="")
+                print()
+
+                plant = (self.tca_buffer[0x8c] << 8) | self.tca_buffer[0x8d]
+                print("    Plant of Manufacture: %.4x" % plant)
+
+                print("    Sequence Number: ", end="")
+                for i in range(0x8e, 0x95):
+                    print(ebcdic2ascii[self.tca_buffer[i]], end="")
+                print()
+
+                print("    Release Level of Program: ", end="")
+                for i in range(0x95, 0x98):
+                    print(ebcdic2ascii[self.tca_buffer[i]], end="")
+                print()
+
+                print("    Device Specific Information: ", end="")
+                for i in range(0x98, 0xa8):
+                    print(ebcdic2ascii[self.tca_buffer[i]], end="")
+                print()
+                pass
 
         if cufrv == Function_Requests.RDAT.value:
             cufrp12 = (self.tca_buffer[TCA_Fields.CUFRP1.value] << 8) | \
