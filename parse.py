@@ -132,6 +132,22 @@ WCUS_C_MAP = {
         **{field.value: field for field in WCUS_Conditions}
 }
 
+class AsynchronousEvents(Enum):
+    AEER   = 0x20   # Asynchronous Error
+    AEEP   = 0x22   # Inbound Event Pending 
+    AEDBA  = 0x24   # Data Base Access Needed
+    AEEB   = 0x26   # End IR/Busy
+    AEDV   = 0x28   # Device-CU local Status
+    AEFREE = 0x2A   # Release Printer
+    AEPID  = 0x2C   # Request Printer Assignment 
+    AECOPY = 0x2E   # Copy Request
+    AECAN  = 0x30   # Cancel Copy Request
+    AEDBS  = 0x32   # Request Data Base Store
+    AESTAT = 0x34   # Asynchronous Response to Start Operation
+
+AE_MAP = {
+    **{ae.value: ae for ae in AsynchronousEvents}
+}
 
 class Function_Requests(Enum):
     CNOP = 0x01    # Control No-Operation
@@ -185,6 +201,7 @@ class TerminalState():
         self.prev_cmd = None
         self.last_read_dp = None
         self.da_length_read = False
+        self.async_event = False
 
     def update_tca_buffer(self, data):
         if not isinstance(data, bytes):
@@ -204,6 +221,11 @@ class TerminalState():
                 for x in range(4, actual_length):
                     self.dirty_flags[self.last_read_dp+x] = 1
                     
+            if not self.async_event and self.tca_buffer[TCA_Fields.DPASTAT.value] == 1:
+                self.async_event = True
+                for x in [TCA_Fields.DAEV.value]:
+                    self.dirty_flags[x] = 1
+            
         # Check to see if the data portion of the data area is now clean
         if self.last_read_dp is not None and (sum(self.dirty_flags) == 0):
             actual_length = (self.tca_buffer[self.last_read_dp] >> 16) | self.tca_buffer[self.last_read_dp+1] - 4
@@ -211,6 +233,11 @@ class TerminalState():
             print("    Actual length returned = %d" % (actual_length))
             pretty_print(self.tca_buffer[self.last_read_dp+4:self.last_read_dp+4+actual_length])
             self.last_read_dp = None
+
+        if self.async_event and (sum(self.dirty_flags) == 0):
+            self.async_event = False
+            print("Asynchronous Event Received From Terminal:")
+            print("    Event: ", AE_MAP[self.tca_buffer[TCA_Fields.DAEV.value]].name)
 
     def set_address_counter_high(self, ah):
         if not isinstance(ah, bytes):
