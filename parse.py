@@ -87,6 +87,47 @@ TCA_MAP = {
 }
 
 
+class WCUS_Conditions(Enum):
+    # Input Inhibit
+    MACHINE_CHECK = 0x01
+    COMMUN_CHECK_REMINDER = 0x02
+    PROGRAM_CHECK = 0x03
+    # Readiness Group
+    CU_READY = 0x10
+    # Identity
+    DEVICE_IDENTIFICATION = 0x20
+    # Reminders
+    COMMUNICATIONS_CHECK = 0x30
+    NO_REMINDER = 0x31
+    DISK_NOT_READY_CO = 0x60
+    DISK_NOT_READY_CC = 0x61
+    # LU Status
+    LU_ACTIVE = 0x40
+    LU_NOT_ACTIVE = 0x41
+    RTM_PARAMETERS = 0x42
+    # Local Copy
+    REQUEST_QUEUED = 0x51
+    LONG_TERM_BUSY = 0x52
+    FIXME = 0x53                      # XXX FIXME
+    INVALID_PRINTER_NUMBER = 0x54
+    ASSIGNMENT_NOT_ALLOWED = 0x55
+    PRINTER_ASSIGNED = 0x56
+    PRINTER_AVAILABLE = 0x57
+    PRINTING_STARTED = 0x58
+    REQUEST_DEQUEUED = 0x59
+    LOCAL_COPY_UNCONFIGURED = 0x5a
+    PRINT_COMPLETE = 0x5b
+    PRINTER_OPERATIONAL = 0x5c
+    # Disk Completion
+    DISK_COMPLETION1 = 0x70
+    DISK_COMPLETION2 = 0x71
+
+
+WCUS_C_MAP = {
+        **{field.value: field for field in WCUS_Conditions}
+}
+
+
 class Function_Requests(Enum):
     CNOP = 0x01    # Control No-Operation
     WCUS = 0x02    # Write Control Unit Status
@@ -103,27 +144,33 @@ class Function_Requests(Enum):
     RPID = 0x0d    # Read Printer Identification
     # Bytes 0x0e..0xff Reserved
 
+
 FR_MAP = {
     **{fr.value: fr for fr in Function_Requests}
 }
 
 
-class TerminalState():
+class Command_Names(Enum):
+    POLL = 0x01
+    RESET = 0x02
+    READ_DATA = 0x03
+    LOAD_ADDRESS_COUNTER_HIGH = 0x04
+    START_OPERATION = 0x08
+    READ_TERMINAL_ID = 0x09
+    READ_MULTIPLE = 0x0b
+    WRITE_DATA = 0x0c
+    POLL_ACK = 0x11
+    LOAD_ADDRESS_COUNTER_LOW = 0x14
+    LOAD_SECONDARY_CONTROL_REGISTER = 0x1a
+    DIAGNOSTIC_RESET = 0x1c
 
-    command_names = {
-        0x01: "POLL",
-        0x03: "READ DATA",
-        0x09: "READ TERMINAL ID",
-        0x11: "POLL/ACK",
-        0x0b: "READ MULTIPLE",
-        0x02: "RESET",
-        0x0c: "WRITE DATA",
-        0x04: "LOAD ADDRESS COUNTER HIGH",
-        0x14: "LOAD ADDRESS COUNTER LOW",
-        0x08: "START OPERATION",
-        0x1a: "LOAD SECONDARY CONTROL REGISTER",
-        0x1c: "DIAGNOSTIC RESET"
-    }
+
+CN_MAP = {
+    **{cn.value: cn for cn in Command_Names}
+}
+
+
+class TerminalState():
 
     def __init__(self):
         self.tca_buffer = [0] * 4096
@@ -185,13 +232,13 @@ class TerminalState():
             
             self.prev_cmd = cmd
 
-            if cmd == 0x01:
+            if cmd == Command_Names.POLL.value:
                 return
 
-            if cmd not in TerminalState.command_names.keys():
+            if cmd not in CN_MAP.keys():
                 print("%s (0x%.2x)" % ("###UNKNOWN###", cmd))
             else:
-                print("%s" % (TerminalState.command_names[cmd]))
+                print("%s" % (CN_MAP[cmd]))
 
             payload = None
             response_payload = None
@@ -199,28 +246,37 @@ class TerminalState():
             if len(packet) > 1:
                 payload = extract_bytes(packet[1:])
                 pretty_print(payload)
-            if cmd in [0x03, 0x09, 0x0b]:       # Read commands excluding the polls
+            # Read commands excluding the polls
+            if cmd in [
+                    Command_Names.READ_DATA.value,
+                    Command_Names.READ_TERMINAL_ID.value,
+                    Command_Names.READ_MULTIPLE.value,
+                    ]:
+
                 response_payload = extract_bytes(response)
                 pretty_print(response_payload)
 
-            if cmd == 0x04:
+            if cmd == Command_Names.LOAD_ADDRESS_COUNTER_HIGH.value:
                 self.set_address_counter_high(payload)
 
-            if cmd == 0x14:
+            if cmd == Command_Names.LOAD_ADDRESS_COUNTER_LOW.value:
                 self.set_address_counter_low(payload)
 
-            if cmd in [0x03, 0x0b]:
+            if cmd in [
+                    Command_Names.READ_DATA.value,
+                    Command_Names.READ_MULTIPLE.value,
+                    ]:
                 self.update_tca_buffer(response_payload)
 
-            if cmd == 0x0c and payload is not None:
+            if cmd == Command_Names.WRITE_DATA.value and payload is not None:
                 self.update_tca_buffer(payload)
 
-            if cmd == 0x08:
+            if cmd == Command_Names.START_OPERATION.value:
                 self.print_function_request()
             
 
         else:
-            print("Continuing '%s'" % (TerminalState.command_names[self.prev_cmd]))
+            print("Continuing '%s'" % (CN_MAP[self.prev_cmd]))
             payload = extract_bytes(packet)
             pretty_print(payload)
             if self.prev_cmd == 0x0c:
@@ -264,6 +320,99 @@ class TerminalState():
             flags = (self.tca_buffer[cudp+2] << 8) | self.tca_buffer[cudp+3]
             print("    Length: %.4x" % length)
             print("    Flags: %.4x" % flags)
+
+        if cufrv == Function_Requests.RDAT.value:
+            cufrp12 = (self.tca_buffer[TCA_Fields.CUFRP1.value] << 8) | \
+                  self.tca_buffer[TCA_Fields.CUFRP2.value]
+            print("    Number of Data segments = %.4x" % cufrp12)
+            cufrp34 = (self.tca_buffer[TCA_Fields.CUFRP3.value] << 8) | \
+                self.tca_buffer[TCA_Fields.CUFRP4.value]
+            print("    Maximum Segment Length = %.4x" % cufrp34)
+            print("    Logical Terminal Address = %.2x" %
+                  self.tca_buffer[TCA_Fields.CULTAD.value])
+            cudp = (self.tca_buffer[TCA_Fields.CUDP.value] << 8) | \
+                self.tca_buffer[TCA_Fields.CUDP.value + 1]
+            print("    Address of Data Area = %.4x" % cudp)
+
+        if cufrv == Function_Requests.WCUS.value:
+            cufrp1 = self.tca_buffer[TCA_Fields.CUFRP1.value]
+            if cufrp1 in WCUS_C_MAP.keys():
+                print("    WCUS Condition = %s" % WCUS_C_MAP[cufrp1])
+            else:
+                print("    WCUS Condition %.2x unknown" % cufrp1)
+
+            if cufrp1 == WCUS_Conditions.DEVICE_IDENTIFICATION.value:
+                print("    Controller Identification Characters: ", end="")
+                for i in range(0x82, 0x84):
+                    print(ebcdic2ascii[self.tca_buffer[i]], end="")
+                print()
+                print("    Device Type of Controller: ", end="")
+                for i in range(0x84, 0x88):
+                    print(ebcdic2ascii[self.tca_buffer[i]], end="")
+                print()
+                high, low = self.tca_buffer[0x88] >> 4, self.tca_buffer[0x88] & 0x0f
+                if low == 0x01:
+                    print("    Hardware or Microcode")
+                elif low == 0x0e:
+                    print("    Customer Programmable Machine")
+                else:
+                    print("    Unknown value %.2x in low nibble of 0x88" % low)
+                if high == 0x01:
+                    print("    IBM Machine")
+                elif high == 0x09:
+                    print("    Non-IBM Machine")
+                else:
+                    print("    Unknown value %.2x in high nibble of 0x88" %
+                          high)
+
+                print("    Model Number: ", end="")
+                for i in range(0x89, 0x8c):
+                    print(ebcdic2ascii[self.tca_buffer[i]], end="")
+                print()
+
+                plant = (self.tca_buffer[0x8c] << 8) | self.tca_buffer[0x8d]
+                print("    Plant of Manufacture: %.4x" % plant)
+
+                print("    Sequence Number: ", end="")
+                for i in range(0x8e, 0x95):
+                    print(ebcdic2ascii[self.tca_buffer[i]], end="")
+                print()
+
+                print("    Release Level of Program: ", end="")
+                for i in range(0x95, 0x98):
+                    print(ebcdic2ascii[self.tca_buffer[i]], end="")
+                print()
+
+                print("    Device Specific Information: ", end="")
+                for i in range(0x98, 0xa8):
+                    print(ebcdic2ascii[self.tca_buffer[i]], end="")
+                print()
+
+            if cufrp1 == WCUS_Conditions.CU_READY.value:
+                cufrp2 = self.tca_buffer[TCA_Fields.CUFRP2.value]
+                if cufrp2 == 0x00:
+                    print("    DSL Allowed")
+                elif cufrp2 == 0x02:
+                    print("    DSL Not Allowed")
+                else:
+                    print("    Unknown value %.2x in CU_READY CUFRP2" % cufrp2)
+
+        if cufrv == Function_Requests.RDAT.value:
+            cufrp12 = (self.tca_buffer[TCA_Fields.CUFRP1.value] << 8) | \
+                  self.tca_buffer[TCA_Fields.CUFRP2.value]
+            print("    Number of Data segments = %.4x" % cufrp12)
+            cufrp34 = (self.tca_buffer[TCA_Fields.CUFRP3.value] << 8) | \
+                  self.tca_buffer[TCA_Fields.CUFRP4.value]
+            print("    Maximum Segment Length = %.4x" % cufrp34)
+            print("    Logical Terminal Address = %.2x" %
+                  self.tca_buffer[TCA_Fields.CULTAD.value])
+            cudp = (self.tca_buffer[TCA_Fields.CUDP.value] << 8) | \
+                    self.tca_buffer[TCA_Fields.CUDP.value + 1]
+            print("    Address of Data Area = %.4x" % cudp)
+
+
+        if cufrv == Function_Requests.WCUS.value:
+            pass
 
 def main():
 
@@ -318,6 +467,7 @@ def extract_bytes(words):
     return bytes(r)
 
 def pretty_print(data):
+    print("Length of data: 0x%x" % len(data))
     line = ""
     count = 0
     for (i,x) in enumerate(data):
