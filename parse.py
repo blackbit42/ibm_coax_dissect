@@ -300,13 +300,6 @@ class TerminalState():
             print("    Length = %.4x" % length)
             print("    Flags = %.4x" % flags)
 
-        if cufrv == Function_Requests.RDAT.value:
-            self.last_read_dp = cudp
-            self.da_length_read = False
-            self.dirty_flags[TCA_Fields.DPSSTAT.value] = 1
-            self.dirty_flags[cudp:cudp+4] = [1, 1, 1, 1]
-            print("    Data Pointer = %.4x" % cudp)
-
         if cufrv == Function_Requests.WDBD.value:
             print("    File Identifier = %.2x" % self.tca_buffer[TCA_Fields.CUFRP1.value])
             if self.tca_buffer[TCA_Fields.CUFRP2.value] == 0x00:
@@ -322,6 +315,11 @@ class TerminalState():
             print("    Flags: %.4x" % flags)
 
         if cufrv == Function_Requests.RDAT.value:
+            self.last_read_dp = cudp
+            self.da_length_read = False
+            self.dirty_flags[TCA_Fields.DPSSTAT.value] = 1
+            self.dirty_flags[cudp:cudp+4] = [1, 1, 1, 1]
+
             cufrp12 = (self.tca_buffer[TCA_Fields.CUFRP1.value] << 8) | \
                   self.tca_buffer[TCA_Fields.CUFRP2.value]
             print("    Number of Data segments = %.4x" % cufrp12)
@@ -397,22 +395,6 @@ class TerminalState():
                 else:
                     print("    Unknown value %.2x in CU_READY CUFRP2" % cufrp2)
 
-        if cufrv == Function_Requests.RDAT.value:
-            cufrp12 = (self.tca_buffer[TCA_Fields.CUFRP1.value] << 8) | \
-                  self.tca_buffer[TCA_Fields.CUFRP2.value]
-            print("    Number of Data segments = %.4x" % cufrp12)
-            cufrp34 = (self.tca_buffer[TCA_Fields.CUFRP3.value] << 8) | \
-                  self.tca_buffer[TCA_Fields.CUFRP4.value]
-            print("    Maximum Segment Length = %.4x" % cufrp34)
-            print("    Logical Terminal Address = %.2x" %
-                  self.tca_buffer[TCA_Fields.CULTAD.value])
-            cudp = (self.tca_buffer[TCA_Fields.CUDP.value] << 8) | \
-                    self.tca_buffer[TCA_Fields.CUDP.value + 1]
-            print("    Address of Data Area = %.4x" % cudp)
-
-
-        if cufrv == Function_Requests.WCUS.value:
-            pass
 
 def main():
 
