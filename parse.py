@@ -21,6 +21,11 @@ ebcdic2ascii = [
     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ' ', ' ', ' ', ' ', ' ', ' '
 ]
 
+def e2a(ebcdic_bytes):
+    ascii = ""
+    for x in ebcdic_bytes:
+        ascii += ebcdic2ascii[x]
+    return ascii
 
 class TCA_Fields(Enum):
 
@@ -340,14 +345,10 @@ class TerminalState():
                 print("    WCUS Condition %.2x unknown" % cufrp1)
 
             if cufrp1 == WCUS_Conditions.DEVICE_IDENTIFICATION.value:
-                print("    Controller Identification Characters: ", end="")
-                for i in range(0x82, 0x84):
-                    print(ebcdic2ascii[self.tca_buffer[i]], end="")
-                print()
-                print("    Device Type of Controller: ", end="")
-                for i in range(0x84, 0x88):
-                    print(ebcdic2ascii[self.tca_buffer[i]], end="")
-                print()
+                print("    Controller Identification Characters:", 
+                    e2a(self.tca_buffer[0x82:0x84]))
+                print("    Device Type of Controller:", e2a(self.tca_buffer[0x84:0x88]))
+                
                 high, low = self.tca_buffer[0x88] >> 4, self.tca_buffer[0x88] & 0x0f
                 if low == 0x01:
                     print("    Hardware or Microcode")
@@ -363,28 +364,13 @@ class TerminalState():
                     print("    Unknown value %.2x in high nibble of 0x88" %
                           high)
 
-                print("    Model Number: ", end="")
-                for i in range(0x89, 0x8c):
-                    print(ebcdic2ascii[self.tca_buffer[i]], end="")
-                print()
-
+                print("    Model Number:", e2a(self.tca_buffer[0x89:0x8c]))
+                
                 plant = (self.tca_buffer[0x8c] << 8) | self.tca_buffer[0x8d]
                 print("    Plant of Manufacture: %.4x" % plant)
-
-                print("    Sequence Number: ", end="")
-                for i in range(0x8e, 0x95):
-                    print(ebcdic2ascii[self.tca_buffer[i]], end="")
-                print()
-
-                print("    Release Level of Program: ", end="")
-                for i in range(0x95, 0x98):
-                    print(ebcdic2ascii[self.tca_buffer[i]], end="")
-                print()
-
-                print("    Device Specific Information: ", end="")
-                for i in range(0x98, 0xa8):
-                    print(ebcdic2ascii[self.tca_buffer[i]], end="")
-                print()
+                print("    Sequence Number:", e2a(self.tca_buffer[0x8e:0x95]))
+                print("    Release Level of Program:", e2a(self.tca_buffer[0x95:0x98]))
+                print("    Device Specific Information:", e2a(self.tca_buffer[0x98:0xa8]))
 
             if cufrp1 == WCUS_Conditions.CU_READY.value:
                 cufrp2 = self.tca_buffer[TCA_Fields.CUFRP2.value]
