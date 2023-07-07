@@ -88,7 +88,13 @@ class TCA_Fields(Enum):
 
 
 TCA_MAP = {
-        **{field.value: field for field in TCA_Fields}
+        **{field.value: field for field in TCA_Fields},
+        **{x: f"Reserved{x:x}" for x in range(0x12, 0x20)},
+        **{x: f"Reserved{x:x}" for x in range(0x27, 0x40)},
+        **{x: f"Reserved{x:x}" for x in range(0x43, 0x43)},
+        **{x: f"Reserved{x:x}" for x in range(0x4a, 0x50)},
+        **{x: f"Reserved{x:x}" for x in range(0x59, 0x5c)},
+        **{x: f"Reserved{x:x}" for x in range(0x62, 0x7e)},
 }
 
 
