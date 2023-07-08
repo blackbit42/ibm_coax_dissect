@@ -477,21 +477,21 @@ def extract_bytes(words):
 
 def pretty_print(data):
     print("Length of data: 0x%x" % len(data))
-    line = ""
+    line = ">"
     count = 0
     for (i,x) in enumerate(data):
         print("%.2x " % x, end='')
         line += ebcdic2ascii[x]
         if (i % 16 == 15):
-            print(" " + line)
-            line = ""
+            print(" " + line + "<")
+            line = ">"
         elif (i % 8 == 7):
             print("  ", end='')
         count += 1
 
     if (count % 16):
         print("   " * (16 - (count % 16)), end='')
-        print(" " + line)
+        print(" " + line + "<")
     else:
         print("\n", end='')
 
