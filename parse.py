@@ -96,6 +96,7 @@ TCA_MAP = {
         **{x: f"Reserved{x:02x}" for x in range(0x4a, 0x50)},
         **{x: f"Reserved{x:02x}" for x in range(0x59, 0x5c)},
         **{x: f"Reserved{x:02x}" for x in range(0x62, 0x7e)},
+        **{x: f"CUDATA{x:04x}" for x in range(0x80, 0x1001)},
 }
 
 
