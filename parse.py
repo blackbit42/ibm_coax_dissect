@@ -89,12 +89,12 @@ class TCA_Fields(Enum):
 
 TCA_MAP = {
         **{field.value: field for field in TCA_Fields},
-        **{x: f"Reserved{x:x}" for x in range(0x12, 0x20)},
-        **{x: f"Reserved{x:x}" for x in range(0x27, 0x40)},
-        **{x: f"Reserved{x:x}" for x in range(0x43, 0x43)},
-        **{x: f"Reserved{x:x}" for x in range(0x4a, 0x50)},
-        **{x: f"Reserved{x:x}" for x in range(0x59, 0x5c)},
-        **{x: f"Reserved{x:x}" for x in range(0x62, 0x7e)},
+        **{x: f"Reserved{x:02x}" for x in range(0x12, 0x20)},
+        **{x: f"Reserved{x:02x}" for x in range(0x27, 0x40)},
+        **{x: f"Reserved{x:02x}" for x in range(0x43, 0x43)},
+        **{x: f"Reserved{x:02x}" for x in range(0x4a, 0x50)},
+        **{x: f"Reserved{x:02x}" for x in range(0x59, 0x5c)},
+        **{x: f"Reserved{x:02x}" for x in range(0x62, 0x7e)},
 }
 
 
@@ -216,9 +216,9 @@ class TerminalState():
         for x in data:
             self.tca_buffer[self.address_counter] = x
             if self.address_counter in TCA_MAP.keys():
-                print("XXX %s -> %.2x" % (TCA_MAP[self.address_counter], x))
+                print("TCA: %s -> 0x%.2x" % (TCA_MAP[self.address_counter], x))
             else:
-                print("XXX %.4x -> %.2x" % (self.address_counter, x))
+                print("TCA: 0x%.4x -> 0x%.2x" % (self.address_counter, x))
             self.dirty_flags[self.address_counter] = 0
             self.address_counter += 1
 
