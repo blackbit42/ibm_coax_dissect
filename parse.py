@@ -305,14 +305,17 @@ class TerminalState():
             if cmd not in CN_MAP.keys():
                 print("%s (0x%.2x)" % ("###UNKNOWN###", cmd))
             else:
-                print("%s" % (CN_MAP[cmd]))
+                print("%s" % (CN_MAP[cmd]), end='')
 
             payload = None
             response_payload = None
 
             if len(packet) > 1:
                 payload = extract_bytes(packet[1:])
+                print(" Length of data: 0x%x" % len(payload))
                 pretty_print(payload)
+            else:
+                print()
             # Read commands excluding the polls
             if cmd in [
                     Command_Names.READ_DATA.value,
@@ -500,7 +503,6 @@ def extract_bytes(words):
     return bytes(r)
 
 def pretty_print(data):
-    print("Length of data: 0x%x" % len(data))
     line = ">"
     count = 0
     for (i,x) in enumerate(data):
