@@ -165,8 +165,23 @@ AE_MAP = {
 }
 
 
+class SyncronousEvents(Enum):
+    FCSE = 0x02   # Function Complete with Syncronous Error
+    FC = 0x04     # Function Complete
+    FCIR = 0x06   # Function Complete with Input Required
+    ERFR = 0x08   # Error in Function Request
+    FRA = 0x0a    # Function Request Aborted
+    FCDEF = 0x0c  # Function Complete / Status Deferred
+
+
+SE_MAP = {
+    **{se.value: se for se in SyncronousEvents}
+}
+
+
 class FunctionRequests(Enum):
     """Function Requests"""
+
     CNOP = 0x01    # Control No-Operation
     WCUS = 0x02    # Write Control Unit Status
     WDAT = 0x03    # Write Data from Host
@@ -221,6 +236,7 @@ class TerminalState():
         self.last_read_dp = None
         self.da_length_read = False
         self.async_event = False
+        self.sync_event = False
 
     def update_tca_buffer(self, data):
         if not isinstance(data, bytes):
@@ -247,6 +263,11 @@ class TerminalState():
             if not self.async_event and self.tca_buffer[TCAFields.DPASTAT.value] == 1:
                 self.async_event = True
                 for x in [TCAFields.DAEV.value]:
+                    self.dirty_flags[x] = 1
+
+            if not self.sync_event and self.tca_buffer[TCAFields.DPSSTAT.value] == 1:
+                self.sync_event = True
+                for x in [TCAFields.DSSV.value]:
                     self.dirty_flags[x] = 1
 
         # Check to see if the data portion of the data area is now clean
@@ -283,6 +304,11 @@ class TerminalState():
 
                 if self.tca_buffer[TCAFields.DAEP.value] == 0x03:
                     print("    AEDV(Dump Complete)")
+
+        if self.sync_event and (sum(self.dirty_flags) == 0):
+            self.sync_event = False
+            print("Synchronous Event Received From Terminal:")
+            print("    Event: ", SE_MAP[self.tca_buffer[TCAFields.DSSV.value]].name)
 
     def set_address_counter_high(self, ah):
         if not isinstance(ah, bytes):
