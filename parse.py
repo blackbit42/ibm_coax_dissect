@@ -401,8 +401,9 @@ class TerminalState():
                 self.print_function_request()
 
         else:
-            print(f"Continuing {CN_MAP[self.prev_cmd]}")
             payload = extract_bytes(packet)
+            print(f"Continuing {CN_MAP[self.prev_cmd]} "
+                  f"Length of data: 0x{len(payload):02x}")
             pretty_print(payload)
             if self.prev_cmd == 0x0c:
                 self.update_tca_buffer(payload)
