@@ -251,6 +251,29 @@ class TerminalState():
             print("Asynchronous Event Received From Terminal:")
             print("    Event: ", AE_MAP[self.tca_buffer[TCA_Fields.DAEV.value]].name)
 
+            if self.tca_buffer[TCA_Fields.DAEV.value] == AsynchronousEvents.AEDBA.value:
+                print("    Data Base File: %.2x" % self.tca_buffer[TCA_Fields.DAEP.value])
+                print("    Access: %s" % "R/O" if self.tca_buffer[TCA_Fields.DAEP2.value] == 0x0 else "R/W")
+                print("    Diskette Type: %.02x" % self.tca_buffer[TCA_Fields.DAEP3.value])
+
+            if self.tca_buffer[TCA_Fields.DAEV.value] == AsynchronousEvents.AEDV.value:
+                if self.tca_buffer[TCA_Fields.DAEP.value] == 0x01:
+                    print("    AEDV(Online)")
+                    # TODO Should this be inverted?
+                    print("    DAEP2 bitmap: %s" % bin(self.tca_buffer[TCA_Fields.DAEP2.value]))
+                    # Check if controller supports "Extended DAEV"
+                    CUSLVL = (self.tca_buffer[TCA_Fields.CUSLVL.value] << 8) | \
+                            self.tca_buffer[TCA_Fields.CUSLVL.value+1]
+                    if CUSLVL & 0x1:
+                        print("    DAEP3 bitmap: %s" % bin(self.tca_buffer[TCA_Fields.DAEP3.value]))
+
+
+                if self.tca_buffer[TCA_Fields.DAEP.value] == 0x02:
+                    print("    AEDV(Offline)")
+
+                if self.tca_buffer[TCA_Fields.DAEP.value] == 0x03:
+                    print("    AEDV(Dump Complete)")
+
     def set_address_counter_high(self, ah):
         if not isinstance(ah, bytes):
             raise TypeError("ah must be bytes")
