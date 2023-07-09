@@ -275,18 +275,15 @@ class TerminalState():
 
             if not self.exp_event and self.tca_buffer[TCAFields.EXFAK.value] == 1:
                 self.exp_event = True
-                for x in [TCAFields.EXFRQ.value]:
-                    self.dirty_flags[x] = 1
+                self.dirty_flags[TCAFields.EXFRQ.value] = 1
 
             if not self.sync_event and self.tca_buffer[TCAFields.DPSSTAT.value] == 1:
                 self.sync_event = True
-                for x in [TCAFields.DSSV.value]:
-                    self.dirty_flags[x] = 1
+                self.dirty_flags[TCAFields.DSSV.value] = 1
 
             if not self.async_event and self.tca_buffer[TCAFields.DPASTAT.value] == 1:
                 self.async_event = True
-                for x in [TCAFields.DAEV.value]:
-                    self.dirty_flags[x] = 1
+                self.dirty_flags[TCAFields.DAEV.value] = 1
 
         # Check to see if the data portion of the data area is now clean
         if self.last_read_dp is not None and (sum(self.dirty_flags) == 0):
