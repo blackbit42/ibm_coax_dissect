@@ -145,6 +145,18 @@ WCUS_C_MAP = {
 }
 
 
+class ExpeditedStatusFunctionRequests(Enum):
+    """Expedited Status Function Requests"""
+    DEVICE_BUSY_TIMER_INTERVAL = 0x02
+    START_RTM_TIMER = 0x04
+    STOP_RTM_TIMER = 0x06
+
+
+ES_MAP = {
+    **{es.value: es for es in ExpeditedStatusFunctionRequests}
+}
+
+
 class AsynchronousEvents(Enum):
     """Asyncronous Events"""
     AEER = 0x20    # Asynchronous Error
@@ -235,6 +247,7 @@ class TerminalState():
         self.prev_cmd = None
         self.last_read_dp = None
         self.da_length_read = False
+        self.exp_event = False
         self.sync_event = False
         self.async_event = False
 
@@ -260,6 +273,11 @@ class TerminalState():
                 for x in range(4, actual_length):
                     self.dirty_flags[self.last_read_dp+x] = 1
 
+            if not self.exp_event and self.tca_buffer[TCAFields.EXFAK.value] == 1:
+                self.exp_event = True
+                for x in [TCAFields.EXFRQ.value]:
+                    self.dirty_flags[x] = 1
+
             if not self.sync_event and self.tca_buffer[TCAFields.DPSSTAT.value] == 1:
                 self.sync_event = True
                 for x in [TCAFields.DSSV.value]:
@@ -277,6 +295,11 @@ class TerminalState():
             print(f"    Actual length returned = 0x{actual_length:x}")
             pretty_print(self.tca_buffer[self.last_read_dp+4:self.last_read_dp+4+actual_length])
             self.last_read_dp = None
+
+        if self.exp_event and (sum(self.dirty_flags) == 0):
+            self.exp_event = False
+            print("Expedited Status Available received from terminal:")
+            print("    Event:", ES_MAP[self.tca_buffer[TCAFields.EXFRQ.value]].name)
 
         if self.sync_event and (sum(self.dirty_flags) == 0):
             self.sync_event = False
