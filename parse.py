@@ -235,8 +235,8 @@ class TerminalState():
         self.prev_cmd = None
         self.last_read_dp = None
         self.da_length_read = False
-        self.async_event = False
         self.sync_event = False
+        self.async_event = False
 
     def update_tca_buffer(self, data):
         if not isinstance(data, bytes):
@@ -260,14 +260,14 @@ class TerminalState():
                 for x in range(4, actual_length):
                     self.dirty_flags[self.last_read_dp+x] = 1
 
-            if not self.async_event and self.tca_buffer[TCAFields.DPASTAT.value] == 1:
-                self.async_event = True
-                for x in [TCAFields.DAEV.value]:
-                    self.dirty_flags[x] = 1
-
             if not self.sync_event and self.tca_buffer[TCAFields.DPSSTAT.value] == 1:
                 self.sync_event = True
                 for x in [TCAFields.DSSV.value]:
+                    self.dirty_flags[x] = 1
+
+            if not self.async_event and self.tca_buffer[TCAFields.DPASTAT.value] == 1:
+                self.async_event = True
+                for x in [TCAFields.DAEV.value]:
                     self.dirty_flags[x] = 1
 
         # Check to see if the data portion of the data area is now clean
