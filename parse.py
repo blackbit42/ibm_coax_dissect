@@ -30,7 +30,8 @@ def e2a(ebcdic_bytes):
     return ascii
 
 
-class TCA_Fields(Enum):
+class TCAFields(Enum):
+    """Terminal Control Area Fields"""
 
     # Device owned area.
     DPASTAT = 0x00  # Asynchronous status present flag
@@ -91,7 +92,7 @@ class TCA_Fields(Enum):
 
 
 TCA_MAP = {
-        **{field.value: field for field in TCA_Fields},
+        **{field.value: field for field in TCAFields},
         **{x: f"Reserved{x:02x}" for x in range(0x12, 0x20)},
         **{x: f"Reserved{x:02x}" for x in range(0x27, 0x40)},
         **{x: f"Reserved{x:02x}" for x in range(0x43, 0x43)},
@@ -102,7 +103,8 @@ TCA_MAP = {
 }
 
 
-class WCUS_Conditions(Enum):
+class WCUSConditions(Enum):
+    """Write Control Unit Status Conditions"""
     # Input Inhibit
     MACHINE_CHECK = 0x01
     COMMUN_CHECK_REMINDER = 0x02
@@ -139,11 +141,12 @@ class WCUS_Conditions(Enum):
 
 
 WCUS_C_MAP = {
-        **{field.value: field for field in WCUS_Conditions}
+        **{field.value: field for field in WCUSConditions}
 }
 
 
 class AsynchronousEvents(Enum):
+    """Asyncronous Events"""
     AEER = 0x20    # Asynchronous Error
     AEEP = 0x22    # Inbound Event Pending
     AEDBA = 0x24   # Data Base Access Needed
@@ -162,7 +165,8 @@ AE_MAP = {
 }
 
 
-class Function_Requests(Enum):
+class FunctionRequests(Enum):
+    """Function Requests"""
     CNOP = 0x01    # Control No-Operation
     WCUS = 0x02    # Write Control Unit Status
     WDAT = 0x03    # Write Data from Host
@@ -180,11 +184,12 @@ class Function_Requests(Enum):
 
 
 FR_MAP = {
-    **{fr.value: fr for fr in Function_Requests}
+    **{fr.value: fr for fr in FunctionRequests}
 }
 
 
-class Command_Names(Enum):
+class CommandNames(Enum):
+    """Command Names"""
     POLL = 0x01
     RESET = 0x02
     READ_DATA = 0x03
@@ -200,11 +205,12 @@ class Command_Names(Enum):
 
 
 CN_MAP = {
-    **{cn.value: cn for cn in Command_Names}
+    **{cn.value: cn for cn in CommandNames}
 }
 
 
 class TerminalState():
+    """Terminal State"""
 
     def __init__(self):
         self.tca_buffer = [0] * 4096
@@ -238,9 +244,9 @@ class TerminalState():
                 for x in range(4, actual_length):
                     self.dirty_flags[self.last_read_dp+x] = 1
 
-            if not self.async_event and self.tca_buffer[TCA_Fields.DPASTAT.value] == 1:
+            if not self.async_event and self.tca_buffer[TCAFields.DPASTAT.value] == 1:
                 self.async_event = True
-                for x in [TCA_Fields.DAEV.value]:
+                for x in [TCAFields.DAEV.value]:
                     self.dirty_flags[x] = 1
 
         # Check to see if the data portion of the data area is now clean
@@ -254,28 +260,28 @@ class TerminalState():
         if self.async_event and (sum(self.dirty_flags) == 0):
             self.async_event = False
             print("Asynchronous Event Received From Terminal:")
-            print("    Event: ", AE_MAP[self.tca_buffer[TCA_Fields.DAEV.value]].name)
+            print("    Event: ", AE_MAP[self.tca_buffer[TCAFields.DAEV.value]].name)
 
-            if self.tca_buffer[TCA_Fields.DAEV.value] == AsynchronousEvents.AEDBA.value:
-                print("    Data Base File: %.2x" % self.tca_buffer[TCA_Fields.DAEP.value])
-                print("    Access: %s" % "R/O" if self.tca_buffer[TCA_Fields.DAEP2.value] == 0x0 else "R/W")
-                print("    Diskette Type: %.02x" % self.tca_buffer[TCA_Fields.DAEP3.value])
+            if self.tca_buffer[TCAFields.DAEV.value] == AsynchronousEvents.AEDBA.value:
+                print("    Data Base File: %.2x" % self.tca_buffer[TCAFields.DAEP.value])
+                print("    Access: %s" % "R/O" if self.tca_buffer[TCAFields.DAEP2.value] == 0x0 else "R/W")
+                print("    Diskette Type: %.02x" % self.tca_buffer[TCAFields.DAEP3.value])
 
-            if self.tca_buffer[TCA_Fields.DAEV.value] == AsynchronousEvents.AEDV.value:
-                if self.tca_buffer[TCA_Fields.DAEP.value] == 0x01:
+            if self.tca_buffer[TCAFields.DAEV.value] == AsynchronousEvents.AEDV.value:
+                if self.tca_buffer[TCAFields.DAEP.value] == 0x01:
                     print("    AEDV(Online)")
                     # TODO Should this be inverted?
-                    print("    DAEP2 bitmap: %s" % bin(self.tca_buffer[TCA_Fields.DAEP2.value]))
+                    print("    DAEP2 bitmap: %s" % bin(self.tca_buffer[TCAFields.DAEP2.value]))
                     # Check if controller supports "Extended DAEV"
-                    CUSLVL = (self.tca_buffer[TCA_Fields.CUSLVL.value] << 8) | \
-                        self.tca_buffer[TCA_Fields.CUSLVL.value+1]
-                    if CUSLVL & 0x1:
-                        print("    DAEP3 bitmap: %s" % bin(self.tca_buffer[TCA_Fields.DAEP3.value]))
+                    cuslvl = (self.tca_buffer[TCAFields.CUSLVL.value] << 8) | \
+                        self.tca_buffer[TCAFields.CUSLVL.value+1]
+                    if cuslvl & 0x1:
+                        print("    DAEP3 bitmap: %s" % bin(self.tca_buffer[TCAFields.DAEP3.value]))
 
-                if self.tca_buffer[TCA_Fields.DAEP.value] == 0x02:
+                if self.tca_buffer[TCAFields.DAEP.value] == 0x02:
                     print("    AEDV(Offline)")
 
-                if self.tca_buffer[TCA_Fields.DAEP.value] == 0x03:
+                if self.tca_buffer[TCAFields.DAEP.value] == 0x03:
                     print("    AEDV(Dump Complete)")
 
     def set_address_counter_high(self, ah):
@@ -295,7 +301,7 @@ class TerminalState():
             self.address_counter = (self.address_counter & 0xff00) | (al[0])
 
     def interp_packet(self, packet, response):
-        if (packet[0] & 0x002):
+        if packet[0] & 0x002:
             # This is a new command
 
             # addr = (packet[0] & 0x700) >> 8
@@ -303,7 +309,7 @@ class TerminalState():
 
             self.prev_cmd = cmd
 
-            if cmd == Command_Names.POLL.value:
+            if cmd == CommandNames.POLL.value:
                 return
 
             if cmd not in CN_MAP.keys():
@@ -322,30 +328,30 @@ class TerminalState():
                 print()
             # Read commands excluding the polls
             if cmd in [
-                    Command_Names.READ_DATA.value,
-                    Command_Names.READ_TERMINAL_ID.value,
-                    Command_Names.READ_MULTIPLE.value,
+                    CommandNames.READ_DATA.value,
+                    CommandNames.READ_TERMINAL_ID.value,
+                    CommandNames.READ_MULTIPLE.value,
                     ]:
 
                 response_payload = extract_bytes(response)
                 pretty_print(response_payload)
 
-            if cmd == Command_Names.LOAD_ADDRESS_COUNTER_HIGH.value:
+            if cmd == CommandNames.LOAD_ADDRESS_COUNTER_HIGH.value:
                 self.set_address_counter_high(payload)
 
-            if cmd == Command_Names.LOAD_ADDRESS_COUNTER_LOW.value:
+            if cmd == CommandNames.LOAD_ADDRESS_COUNTER_LOW.value:
                 self.set_address_counter_low(payload)
 
             if cmd in [
-                    Command_Names.READ_DATA.value,
-                    Command_Names.READ_MULTIPLE.value,
+                    CommandNames.READ_DATA.value,
+                    CommandNames.READ_MULTIPLE.value,
                     ]:
                 self.update_tca_buffer(response_payload)
 
-            if cmd == Command_Names.WRITE_DATA.value and payload is not None:
+            if cmd == CommandNames.WRITE_DATA.value and payload is not None:
                 self.update_tca_buffer(payload)
 
-            if cmd == Command_Names.START_OPERATION.value:
+            if cmd == CommandNames.START_OPERATION.value:
                 self.print_function_request()
 
         else:
@@ -363,56 +369,56 @@ class TerminalState():
 
         print("CU Function Request: %s" % (FR_MAP[cufrv]))
 
-        cudp = (self.tca_buffer[TCA_Fields.CUDP.value] << 8) | self.tca_buffer[TCA_Fields.CUDP.value + 1]
+        cudp = (self.tca_buffer[TCAFields.CUDP.value] << 8) | self.tca_buffer[TCAFields.CUDP.value + 1]
 
-        if cufrv == Function_Requests.WDAT.value:
-            print("    Logical Terminal = %.2x" % self.tca_buffer[TCA_Fields.CULTAD.value])
+        if cufrv == FunctionRequests.WDAT.value:
+            print("    Logical Terminal = %.2x" % self.tca_buffer[TCAFields.CULTAD.value])
             print("    Data Pointer = %.4x" % cudp)
             length = (self.tca_buffer[cudp] << 8) | self.tca_buffer[cudp+1]
             flags = (self.tca_buffer[cudp+2] << 8) | self.tca_buffer[cudp+3]
             print("    Length = %.4x" % length)
             print("    Flags = %.4x" % flags)
 
-        if cufrv == Function_Requests.WDBD.value:
-            print("    File Identifier = %.2x" % self.tca_buffer[TCA_Fields.CUFRP1.value])
-            if self.tca_buffer[TCA_Fields.CUFRP2.value] == 0x00:
+        if cufrv == FunctionRequests.WDBD.value:
+            print("    File Identifier = %.2x" % self.tca_buffer[TCAFields.CUFRP1.value])
+            if self.tca_buffer[TCAFields.CUFRP2.value] == 0x00:
                 print("    File retrieved from Disk")
-            elif self.tca_buffer[TCA_Fields.CUFRP2.value] == 0x80:
+            elif self.tca_buffer[TCAFields.CUFRP2.value] == 0x80:
                 print("    File retrieved from CU Memory")
             else:
-                print("    File retrieved unknown value %.1x" % self.tca_buffer[TCA_Fields.CUFRP2.value])
+                print("    File retrieved unknown value %.1x" % self.tca_buffer[TCAFields.CUFRP2.value])
             print("    Address of Data Area: %.4x" % (cudp))
             length = (self.tca_buffer[cudp] << 8) | self.tca_buffer[cudp+1]
             flags = (self.tca_buffer[cudp+2] << 8) | self.tca_buffer[cudp+3]
             print("    Length: %.4x" % length)
             print("    Flags: %.4x" % flags)
 
-        if cufrv == Function_Requests.RDAT.value:
+        if cufrv == FunctionRequests.RDAT.value:
             self.last_read_dp = cudp
             self.da_length_read = False
-            self.dirty_flags[TCA_Fields.DPSSTAT.value] = 1
+            self.dirty_flags[TCAFields.DPSSTAT.value] = 1
             self.dirty_flags[cudp:cudp+4] = [1, 1, 1, 1]
 
-            cufrp12 = (self.tca_buffer[TCA_Fields.CUFRP1.value] << 8) | \
-                self.tca_buffer[TCA_Fields.CUFRP2.value]
+            cufrp12 = (self.tca_buffer[TCAFields.CUFRP1.value] << 8) | \
+                self.tca_buffer[TCAFields.CUFRP2.value]
             print("    Number of Data segments = %.4x" % cufrp12)
-            cufrp34 = (self.tca_buffer[TCA_Fields.CUFRP3.value] << 8) | \
-                self.tca_buffer[TCA_Fields.CUFRP4.value]
+            cufrp34 = (self.tca_buffer[TCAFields.CUFRP3.value] << 8) | \
+                self.tca_buffer[TCAFields.CUFRP4.value]
             print("    Maximum Segment Length = %.4x" % cufrp34)
             print("    Logical Terminal Address = %.2x" %
-                  self.tca_buffer[TCA_Fields.CULTAD.value])
-            cudp = (self.tca_buffer[TCA_Fields.CUDP.value] << 8) | \
-                self.tca_buffer[TCA_Fields.CUDP.value + 1]
+                  self.tca_buffer[TCAFields.CULTAD.value])
+            cudp = (self.tca_buffer[TCAFields.CUDP.value] << 8) | \
+                self.tca_buffer[TCAFields.CUDP.value + 1]
             print("    Address of Data Area = %.4x" % cudp)
 
-        if cufrv == Function_Requests.WCUS.value:
-            cufrp1 = self.tca_buffer[TCA_Fields.CUFRP1.value]
+        if cufrv == FunctionRequests.WCUS.value:
+            cufrp1 = self.tca_buffer[TCAFields.CUFRP1.value]
             if cufrp1 in WCUS_C_MAP.keys():
                 print("    WCUS Condition = %s" % WCUS_C_MAP[cufrp1])
             else:
                 print("    WCUS Condition %.2x unknown" % cufrp1)
 
-            if cufrp1 == WCUS_Conditions.DEVICE_IDENTIFICATION.value:
+            if cufrp1 == WCUSConditions.DEVICE_IDENTIFICATION.value:
                 print("    Controller Identification Characters:",
                       e2a(self.tca_buffer[0x82:0x84]))
                 print("    Device Type of Controller:", e2a(self.tca_buffer[0x84:0x88]))
@@ -440,8 +446,8 @@ class TerminalState():
                 print("    Release Level of Program:", e2a(self.tca_buffer[0x95:0x98]))
                 print("    Device Specific Information:", e2a(self.tca_buffer[0x98:0xa8]))
 
-            if cufrp1 == WCUS_Conditions.CU_READY.value:
-                cufrp2 = self.tca_buffer[TCA_Fields.CUFRP2.value]
+            if cufrp1 == WCUSConditions.CU_READY.value:
+                cufrp2 = self.tca_buffer[TCAFields.CUFRP2.value]
                 if cufrp2 == 0x00:
                     print("    DSL Allowed")
                 elif cufrp2 == 0x02:
@@ -458,7 +464,7 @@ def main():
     if len(sys.argv) != 2:
         print("Usage: python parse.py [ila_file]")
 
-    with open(sys.argv[1], "r") as f:
+    with open(sys.argv[1], "r", encoding="ascii") as f:
 
         counter = 0
         is_response = False
@@ -476,7 +482,7 @@ def main():
                 tdata = int(tdata, 16)
                 tlast = int(tlast, 16)
 
-                is_response = True if (tdata & 0x8000) else False
+                is_response = tdata & 0x8000
 
                 if counter == 0:
                     if not is_response:
@@ -513,14 +519,14 @@ def pretty_print(data):
     for (i, x) in enumerate(data):
         print("%.2x " % x, end='')
         line += ebcdic2ascii[x]
-        if (i % 16 == 15):
+        if i % 16 == 15:
             print(" " + line + "<")
             line = ">"
-        elif (i % 8 == 7):
+        elif i % 8 == 7:
             print("  ", end='')
         count += 1
 
-    if (count % 16):
+    if count % 16:
         print("   " * (16 - (count % 16)), end='')
         print(" " + line + "<")
     else:
