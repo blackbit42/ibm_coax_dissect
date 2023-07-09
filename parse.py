@@ -229,9 +229,9 @@ class TerminalState():
         for x in data:
             self.tca_buffer[self.address_counter] = x
             if self.address_counter in TCA_MAP.keys():
-                print("TCA: %s -> 0x%.2x" % (TCA_MAP[self.address_counter], x))
+                print("    TCA: %s -> 0x%.2x" % (TCA_MAP[self.address_counter], x))
             else:
-                print("TCA: 0x%.4x -> 0x%.2x" % (self.address_counter, x))
+                print("    TCA: 0x%.4x -> 0x%.2x" % (self.address_counter, x))
             self.dirty_flags[self.address_counter] = 0
             self.address_counter += 1
 
