@@ -18,15 +18,17 @@ ebcdic2ascii = [
     '^', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '[', ']', ' ', ' ', ' ', ' ',
     '{', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', ' ', ' ', ' ', ' ', ' ', ' ',
     '}', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', ' ', ' ', ' ', ' ', ' ', ' ',
-    '\\',' ', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', ' ', ' ', ' ', ' ', ' ', ' ',
+    '\\', ' ', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', ' ', ' ', ' ', ' ', ' ', ' ',
     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ' ', ' ', ' ', ' ', ' ', ' '
 ]
+
 
 def e2a(ebcdic_bytes):
     ascii = ""
     for x in ebcdic_bytes:
         ascii += ebcdic2ascii[x]
     return ascii
+
 
 class TCA_Fields(Enum):
 
@@ -140,22 +142,25 @@ WCUS_C_MAP = {
         **{field.value: field for field in WCUS_Conditions}
 }
 
+
 class AsynchronousEvents(Enum):
-    AEER   = 0x20   # Asynchronous Error
-    AEEP   = 0x22   # Inbound Event Pending 
-    AEDBA  = 0x24   # Data Base Access Needed
-    AEEB   = 0x26   # End IR/Busy
-    AEDV   = 0x28   # Device-CU local Status
-    AEFREE = 0x2A   # Release Printer
-    AEPID  = 0x2C   # Request Printer Assignment 
-    AECOPY = 0x2E   # Copy Request
-    AECAN  = 0x30   # Cancel Copy Request
-    AEDBS  = 0x32   # Request Data Base Store
-    AESTAT = 0x34   # Asynchronous Response to Start Operation
+    AEER = 0x20    # Asynchronous Error
+    AEEP = 0x22    # Inbound Event Pending
+    AEDBA = 0x24   # Data Base Access Needed
+    AEEB = 0x26    # End IR/Busy
+    AEDV = 0x28    # Device-CU local Status
+    AEFREE = 0x2A  # Release Printer
+    AEPID = 0x2C   # Request Printer Assignment
+    AECOPY = 0x2E  # Copy Request
+    AECAN = 0x30   # Cancel Copy Request
+    AEDBS = 0x32   # Request Data Base Store
+    AESTAT = 0x34  # Asynchronous Response to Start Operation
+
 
 AE_MAP = {
     **{ae.value: ae for ae in AsynchronousEvents}
 }
+
 
 class Function_Requests(Enum):
     CNOP = 0x01    # Control No-Operation
@@ -232,12 +237,12 @@ class TerminalState():
                 # Now that we know the length, mark the rest of the data area as dirty
                 for x in range(4, actual_length):
                     self.dirty_flags[self.last_read_dp+x] = 1
-                    
+
             if not self.async_event and self.tca_buffer[TCA_Fields.DPASTAT.value] == 1:
                 self.async_event = True
                 for x in [TCA_Fields.DAEV.value]:
                     self.dirty_flags[x] = 1
-            
+
         # Check to see if the data portion of the data area is now clean
         if self.last_read_dp is not None and (sum(self.dirty_flags) == 0):
             actual_length = (self.tca_buffer[self.last_read_dp] >> 16) | self.tca_buffer[self.last_read_dp+1] - 4
@@ -263,10 +268,9 @@ class TerminalState():
                     print("    DAEP2 bitmap: %s" % bin(self.tca_buffer[TCA_Fields.DAEP2.value]))
                     # Check if controller supports "Extended DAEV"
                     CUSLVL = (self.tca_buffer[TCA_Fields.CUSLVL.value] << 8) | \
-                            self.tca_buffer[TCA_Fields.CUSLVL.value+1]
+                        self.tca_buffer[TCA_Fields.CUSLVL.value+1]
                     if CUSLVL & 0x1:
                         print("    DAEP3 bitmap: %s" % bin(self.tca_buffer[TCA_Fields.DAEP3.value]))
-
 
                 if self.tca_buffer[TCA_Fields.DAEP.value] == 0x02:
                     print("    AEDV(Offline)")
@@ -278,7 +282,7 @@ class TerminalState():
         if not isinstance(ah, bytes):
             raise TypeError("ah must be bytes")
         if len(ah) != 1:
-                print("Load address counter high has unexpected number of payload bytes")
+            print("Load address counter high has unexpected number of payload bytes")
         else:
             self.address_counter = (self.address_counter & 0xff) | (ah[0] << 8)
 
@@ -286,7 +290,7 @@ class TerminalState():
         if not isinstance(al, bytes):
             raise TypeError("al must be bytes")
         if len(al) != 1:
-                print("Load address counter low has unexpected number of payload bytes")
+            print("Load address counter low has unexpected number of payload bytes")
         else:
             self.address_counter = (self.address_counter & 0xff00) | (al[0])
 
@@ -294,9 +298,9 @@ class TerminalState():
         if (packet[0] & 0x002):
             # This is a new command
 
-            addr = (packet[0] & 0x700) >> 8
+            # addr = (packet[0] & 0x700) >> 8
             cmd = (packet[0] & 0x0F8) >> 3
-            
+
             self.prev_cmd = cmd
 
             if cmd == Command_Names.POLL.value:
@@ -343,7 +347,6 @@ class TerminalState():
 
             if cmd == Command_Names.START_OPERATION.value:
                 self.print_function_request()
-            
 
         else:
             print("Continuing '%s'" % (CN_MAP[self.prev_cmd]))
@@ -391,7 +394,7 @@ class TerminalState():
             self.dirty_flags[cudp:cudp+4] = [1, 1, 1, 1]
 
             cufrp12 = (self.tca_buffer[TCA_Fields.CUFRP1.value] << 8) | \
-                  self.tca_buffer[TCA_Fields.CUFRP2.value]
+                self.tca_buffer[TCA_Fields.CUFRP2.value]
             print("    Number of Data segments = %.4x" % cufrp12)
             cufrp34 = (self.tca_buffer[TCA_Fields.CUFRP3.value] << 8) | \
                 self.tca_buffer[TCA_Fields.CUFRP4.value]
@@ -410,10 +413,10 @@ class TerminalState():
                 print("    WCUS Condition %.2x unknown" % cufrp1)
 
             if cufrp1 == WCUS_Conditions.DEVICE_IDENTIFICATION.value:
-                print("    Controller Identification Characters:", 
-                    e2a(self.tca_buffer[0x82:0x84]))
+                print("    Controller Identification Characters:",
+                      e2a(self.tca_buffer[0x82:0x84]))
                 print("    Device Type of Controller:", e2a(self.tca_buffer[0x84:0x88]))
-                
+
                 high, low = self.tca_buffer[0x88] >> 4, self.tca_buffer[0x88] & 0x0f
                 if low == 0x01:
                     print("    Hardware or Microcode")
@@ -430,7 +433,7 @@ class TerminalState():
                           high)
 
                 print("    Model Number:", e2a(self.tca_buffer[0x89:0x8c]))
-                
+
                 plant = (self.tca_buffer[0x8c] << 8) | self.tca_buffer[0x8d]
                 print("    Plant of Manufacture: %.4x" % plant)
                 print("    Sequence Number:", e2a(self.tca_buffer[0x8e:0x95]))
@@ -496,16 +499,18 @@ def main():
                     counter += 1
         pretty_print(state.tca_buffer)
 
+
 def extract_bytes(words):
     r = []
     for x in words:
         r.append((x & 0x7F8) >> 3)
     return bytes(r)
 
+
 def pretty_print(data):
     line = ">"
     count = 0
-    for (i,x) in enumerate(data):
+    for (i, x) in enumerate(data):
         print("%.2x " % x, end='')
         line += ebcdic2ascii[x]
         if (i % 16 == 15):
