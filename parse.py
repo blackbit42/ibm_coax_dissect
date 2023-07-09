@@ -245,9 +245,9 @@ class TerminalState():
         for x in data:
             self.tca_buffer[self.address_counter] = x
             if self.address_counter in TCA_MAP.keys():
-                print("    TCA: %s -> 0x%.2x" % (TCA_MAP[self.address_counter], x))
+                print(f"    TCA: {TCA_MAP[self.address_counter]} -> 0x{x:02x}")
             else:
-                print("    TCA: 0x%.4x -> 0x%.2x" % (self.address_counter, x))
+                print(f"    TCA: 0x{self.address_counter:04x} -> 0x{x:02x}")
             self.dirty_flags[self.address_counter] = 0
             self.address_counter += 1
 
@@ -274,7 +274,7 @@ class TerminalState():
         if self.last_read_dp is not None and (sum(self.dirty_flags) == 0):
             actual_length = (self.tca_buffer[self.last_read_dp] >> 16) | self.tca_buffer[self.last_read_dp+1] - 4
             print("RDAT Completed:")
-            print("    Actual length returned = %d" % (actual_length))
+            print(f"    Actual length returned = 0x{actual_length:x}")
             pretty_print(self.tca_buffer[self.last_read_dp+4:self.last_read_dp+4+actual_length])
             self.last_read_dp = None
 
@@ -289,20 +289,20 @@ class TerminalState():
             print("    Event:", AE_MAP[self.tca_buffer[TCAFields.DAEV.value]].name)
 
             if self.tca_buffer[TCAFields.DAEV.value] == AsynchronousEvents.AEDBA.value:
-                print("    Data Base File: %.2x" % self.tca_buffer[TCAFields.DAEP.value])
-                print("    Access: %s" % "R/O" if self.tca_buffer[TCAFields.DAEP2.value] == 0x0 else "R/W")
-                print("    Diskette Type: %.02x" % self.tca_buffer[TCAFields.DAEP3.value])
+                print(f"    Data Base File: {self.tca_buffer[TCAFields.DAEP.value]:02x}")
+                print(f'    Access: {"R/O" if self.tca_buffer[TCAFields.DAEP2.value] == 0x0 else "R/W"}')
+                print(f"    Diskette Type: 0x{self.tca_buffer[TCAFields.DAEP3.value]:02x}")
 
             if self.tca_buffer[TCAFields.DAEV.value] == AsynchronousEvents.AEDV.value:
                 if self.tca_buffer[TCAFields.DAEP.value] == 0x01:
                     print("    AEDV(Online)")
                     # TODO Should this be inverted?
-                    print("    DAEP2 bitmap: %s" % bin(self.tca_buffer[TCAFields.DAEP2.value]))
+                    print(f"    DAEP2 bitmap: {bin(self.tca_buffer[TCAFields.DAEP2.value])}")
                     # Check if controller supports "Extended DAEV"
                     cuslvl = (self.tca_buffer[TCAFields.CUSLVL.value] << 8) | \
                         self.tca_buffer[TCAFields.CUSLVL.value+1]
                     if cuslvl & 0x1:
-                        print("    DAEP3 bitmap: %s" % bin(self.tca_buffer[TCAFields.DAEP3.value]))
+                        print(f"    DAEP3 bitmap: {bin(self.tca_buffer[TCAFields.DAEP3.value])}")
 
                 if self.tca_buffer[TCAFields.DAEP.value] == 0x02:
                     print("    AEDV(Offline)")
@@ -339,16 +339,16 @@ class TerminalState():
                 return
 
             if cmd not in CN_MAP.keys():
-                print("%s (0x%.2x)" % ("###UNKNOWN###", cmd))
+                print(f"###UNKNOWN### command 0x{cmd:02x}")
             else:
-                print("%s" % (CN_MAP[cmd]), end='')
+                print(f"{CN_MAP[cmd]}", end='')
 
             payload = None
             response_payload = None
 
             if len(packet) > 1:
                 payload = extract_bytes(packet[1:])
-                print(" Length of data: 0x%x" % len(payload))
+                print(f" Length of data: 0x{len(payload):02x}")
                 pretty_print(payload)
             else:
                 print()
@@ -381,7 +381,7 @@ class TerminalState():
                 self.print_function_request()
 
         else:
-            print("Continuing '%s'" % (CN_MAP[self.prev_cmd]))
+            print(f"Continuing {CN_MAP[self.prev_cmd]}")
             payload = extract_bytes(packet)
             pretty_print(payload)
             if self.prev_cmd == 0x0c:
@@ -390,34 +390,34 @@ class TerminalState():
     def print_function_request(self):
         cufrv = self.tca_buffer[0x44]
         if cufrv not in FR_MAP.keys():
-            print("CU Function Request: Unknown (%.2x)" % (cufrv))
+            print(f"CU Function Request: Unknown 0x{cufrv:02x}")
             return
 
-        print("CU Function Request: %s" % (FR_MAP[cufrv]))
+        print(f"CU Function Request: {FR_MAP[cufrv]}")
 
         cudp = (self.tca_buffer[TCAFields.CUDP.value] << 8) | self.tca_buffer[TCAFields.CUDP.value + 1]
 
         if cufrv == FunctionRequests.WDAT.value:
-            print("    Logical Terminal = %.2x" % self.tca_buffer[TCAFields.CULTAD.value])
-            print("    Data Pointer = %.4x" % cudp)
+            print(f"    Logical Terminal = 0x{self.tca_buffer[TCAFields.CULTAD.value]:02x}")
+            print(f"    Data Pointer = 0x{cudp:04x}")
             length = (self.tca_buffer[cudp] << 8) | self.tca_buffer[cudp+1]
             flags = (self.tca_buffer[cudp+2] << 8) | self.tca_buffer[cudp+3]
-            print("    Length = %.4x" % length)
-            print("    Flags = %.4x" % flags)
+            print(f"    Length = 0x{length:04x}")
+            print(f"    Flags = 0x{flags:04x}")
 
         if cufrv == FunctionRequests.WDBD.value:
-            print("    File Identifier = %.2x" % self.tca_buffer[TCAFields.CUFRP1.value])
+            print(f"    File Identifier = 0x{self.tca_buffer[TCAFields.CUFRP1.value]:02x}")
             if self.tca_buffer[TCAFields.CUFRP2.value] == 0x00:
                 print("    File retrieved from Disk")
             elif self.tca_buffer[TCAFields.CUFRP2.value] == 0x80:
                 print("    File retrieved from CU Memory")
             else:
-                print("    File retrieved unknown value %.1x" % self.tca_buffer[TCAFields.CUFRP2.value])
-            print("    Address of Data Area: %.4x" % (cudp))
+                print(f"    File retrieved unknown value 0x{self.tca_buffer[TCAFields.CUFRP2.value]}")
+            print(f"    Address of Data Area: 0x{cudp:04x}")
             length = (self.tca_buffer[cudp] << 8) | self.tca_buffer[cudp+1]
             flags = (self.tca_buffer[cudp+2] << 8) | self.tca_buffer[cudp+3]
-            print("    Length: %.4x" % length)
-            print("    Flags: %.4x" % flags)
+            print(f"    Length: 0x{length:04x}")
+            print(f"    Flags: 0x{flags:04x}")
 
         if cufrv == FunctionRequests.RDAT.value:
             self.last_read_dp = cudp
@@ -427,27 +427,26 @@ class TerminalState():
 
             cufrp12 = (self.tca_buffer[TCAFields.CUFRP1.value] << 8) | \
                 self.tca_buffer[TCAFields.CUFRP2.value]
-            print("    Number of Data segments = %.4x" % cufrp12)
+            print(f"    Number of Data segments = 0x{cufrp12:04x}")
             cufrp34 = (self.tca_buffer[TCAFields.CUFRP3.value] << 8) | \
                 self.tca_buffer[TCAFields.CUFRP4.value]
-            print("    Maximum Segment Length = %.4x" % cufrp34)
-            print("    Logical Terminal Address = %.2x" %
-                  self.tca_buffer[TCAFields.CULTAD.value])
+            print(f"    Maximum Segment Length = 0x{cufrp34:04x}")
+            print(f"    Logical Terminal Address = 0x{self.tca_buffer[TCAFields.CULTAD.value]:02x}")
             cudp = (self.tca_buffer[TCAFields.CUDP.value] << 8) | \
                 self.tca_buffer[TCAFields.CUDP.value + 1]
-            print("    Address of Data Area = %.4x" % cudp)
+            print(f"    Address of Data Area = 0x{cudp:04x}")
 
         if cufrv == FunctionRequests.WCUS.value:
             cufrp1 = self.tca_buffer[TCAFields.CUFRP1.value]
             if cufrp1 in WCUS_C_MAP.keys():
-                print("    WCUS Condition = %s" % WCUS_C_MAP[cufrp1])
+                print(f"    WCUS Condition = {WCUS_C_MAP[cufrp1]}")
             else:
-                print("    WCUS Condition %.2x unknown" % cufrp1)
+                print(f"    WCUS Condition 0x{cufrp1:02x}")
 
             if cufrp1 == WCUSConditions.DEVICE_IDENTIFICATION.value:
                 print("    Controller Identification Characters:",
                       e2a(self.tca_buffer[0x82:0x84]))
-                print("    Device Type of Controller:", e2a(self.tca_buffer[0x84:0x88]))
+                print(f"    Device Type of Controller: {e2a(self.tca_buffer[0x84:0x88])}")
 
                 high, low = self.tca_buffer[0x88] >> 4, self.tca_buffer[0x88] & 0x0f
                 if low == 0x01:
@@ -455,22 +454,21 @@ class TerminalState():
                 elif low == 0x0e:
                     print("    Customer Programmable Machine")
                 else:
-                    print("    Unknown value %.2x in low nibble of 0x88" % low)
+                    print(f"    Unknown value 0x{low:02x} in low nibble of 0x88")
                 if high == 0x01:
                     print("    IBM Machine")
                 elif high == 0x09:
                     print("    Non-IBM Machine")
                 else:
-                    print("    Unknown value %.2x in high nibble of 0x88" %
-                          high)
+                    print(f"    Unknown value 0x{high:02x} in high nibble of 0x88")
 
-                print("    Model Number:", e2a(self.tca_buffer[0x89:0x8c]))
+                print(f"    Model Number: {e2a(self.tca_buffer[0x89:0x8c])}")
 
                 plant = (self.tca_buffer[0x8c] << 8) | self.tca_buffer[0x8d]
-                print("    Plant of Manufacture: %.4x" % plant)
-                print("    Sequence Number:", e2a(self.tca_buffer[0x8e:0x95]))
-                print("    Release Level of Program:", e2a(self.tca_buffer[0x95:0x98]))
-                print("    Device Specific Information:", e2a(self.tca_buffer[0x98:0xa8]))
+                print(f"    Plant of Manufacture: 0x{plant:04x}")
+                print(f"    Sequence Number {e2a(self.tca_buffer[0x8e:0x95])}")
+                print(f"    Release Level of Program: {e2a(self.tca_buffer[0x95:0x98])}")
+                print(f"    Device Specific Information: {e2a(self.tca_buffer[0x98:0xa8])}")
 
             if cufrp1 == WCUSConditions.CU_READY.value:
                 cufrp2 = self.tca_buffer[TCAFields.CUFRP2.value]
@@ -479,7 +477,7 @@ class TerminalState():
                 elif cufrp2 == 0x02:
                     print("    DSL Not Allowed")
                 else:
-                    print("    Unknown value %.2x in CU_READY CUFRP2" % cufrp2)
+                    print(f"    Unknown value 0x{cufrp2:02x} in CU_READY CUFRP2")
 
 
 def main():
@@ -543,7 +541,7 @@ def pretty_print(data):
     line = ">"
     count = 0
     for (i, x) in enumerate(data):
-        print("%.2x " % x, end='')
+        print(f"{x:02x} ", end='')
         line += ebcdic2ascii[x]
         if i % 16 == 15:
             print(" " + line + "<")
