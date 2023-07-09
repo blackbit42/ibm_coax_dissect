@@ -24,10 +24,10 @@ ebcdic2ascii = [
 
 
 def e2a(ebcdic_bytes):
-    ascii = ""
+    ascii_ = ""
     for x in ebcdic_bytes:
-        ascii += ebcdic2ascii[x]
-    return ascii
+        ascii_ += ebcdic2ascii[x]
+    return ascii_
 
 
 class TCAFields(Enum):
