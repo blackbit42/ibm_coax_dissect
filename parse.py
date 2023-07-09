@@ -93,13 +93,13 @@ class TCAFields(Enum):
 
 TCA_MAP = {
         **{field.value: field for field in TCAFields},
-        **{x: f"Reserved{x:02x}" for x in range(0x12, 0x20)},
-        **{x: f"Reserved{x:02x}" for x in range(0x27, 0x40)},
-        **{x: f"Reserved{x:02x}" for x in range(0x43, 0x43)},
-        **{x: f"Reserved{x:02x}" for x in range(0x4a, 0x50)},
-        **{x: f"Reserved{x:02x}" for x in range(0x59, 0x5c)},
-        **{x: f"Reserved{x:02x}" for x in range(0x62, 0x7e)},
-        **{x: f"CUDATA{x:04x}" for x in range(0x81, 0x1001)},
+        **{x: f"TCAFields.Reserved{x:02x}" for x in range(0x12, 0x20)},
+        **{x: f"TCAFields.Reserved{x:02x}" for x in range(0x27, 0x40)},
+        **{x: f"TCAFields.Reserved{x:02x}" for x in range(0x43, 0x43)},
+        **{x: f"TCAFields.Reserved{x:02x}" for x in range(0x4a, 0x50)},
+        **{x: f"TCAFields.Reserved{x:02x}" for x in range(0x59, 0x5c)},
+        **{x: f"TCAFields.Reserved{x:02x}" for x in range(0x62, 0x7e)},
+        **{x: f"TCAFields.CUDATA{x:04x}" for x in range(0x81, 0x1001)},
 }
 
 
@@ -278,10 +278,15 @@ class TerminalState():
             pretty_print(self.tca_buffer[self.last_read_dp+4:self.last_read_dp+4+actual_length])
             self.last_read_dp = None
 
+        if self.sync_event and (sum(self.dirty_flags) == 0):
+            self.sync_event = False
+            print("Synchronous Status Available received from terminal:")
+            print("    Event:", SE_MAP[self.tca_buffer[TCAFields.DSSV.value]].name)
+
         if self.async_event and (sum(self.dirty_flags) == 0):
             self.async_event = False
-            print("Asynchronous Event Received From Terminal:")
-            print("    Event: ", AE_MAP[self.tca_buffer[TCAFields.DAEV.value]].name)
+            print("Asynchronous Status Available received from terminal:")
+            print("    Event:", AE_MAP[self.tca_buffer[TCAFields.DAEV.value]].name)
 
             if self.tca_buffer[TCAFields.DAEV.value] == AsynchronousEvents.AEDBA.value:
                 print("    Data Base File: %.2x" % self.tca_buffer[TCAFields.DAEP.value])
@@ -304,11 +309,6 @@ class TerminalState():
 
                 if self.tca_buffer[TCAFields.DAEP.value] == 0x03:
                     print("    AEDV(Dump Complete)")
-
-        if self.sync_event and (sum(self.dirty_flags) == 0):
-            self.sync_event = False
-            print("Synchronous Event Received From Terminal:")
-            print("    Event: ", SE_MAP[self.tca_buffer[TCAFields.DSSV.value]].name)
 
     def set_address_counter_high(self, ah):
         if not isinstance(ah, bytes):
