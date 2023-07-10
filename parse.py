@@ -440,6 +440,13 @@ class TerminalState():
             print(f"    Length: 0x{length:04x}")
             print(f"    Flags: 0x{flags:04x}")
 
+            # This is actually relevant for other situations than WDBD.
+            # Maybe move it elsewhere.
+            if flags & 0x08000:
+                print("    First of Message")
+            if flags & 0x04000:
+                print("    Last of Message")
+
         if cufrv == FunctionRequests.RDAT.value:
             self.last_read_dp = cudp
             self.da_length_read = False
