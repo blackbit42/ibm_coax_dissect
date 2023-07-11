@@ -1,7 +1,9 @@
 
-import sys
+import sys, os
 from enum import Enum
-from signal import signal, SIGPIPE, SIG_DFL
+
+if os.name == "posix":
+    from signal import signal, SIGPIPE, SIG_DFL
 
 ebcdic2ascii = [
     ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
@@ -510,8 +512,9 @@ class TerminalState():
 
 def main():
 
-    # Prevent error message if output if piped into e.g. `less`
-    signal(SIGPIPE, SIG_DFL)
+    if os.name == "posix":
+        # Prevent error message if output if piped into e.g. `less`
+        signal(SIGPIPE, SIG_DFL)
 
     if len(sys.argv) != 2:
         print("Usage: python parse.py [ila_file]")
