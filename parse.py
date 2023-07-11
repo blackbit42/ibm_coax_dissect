@@ -286,6 +286,9 @@ class TerminalState():
             if not self.async_event and self.tca_buffer[TCAFields.DPASTAT.value] == 1:
                 self.async_event = True
                 self.dirty_flags[TCAFields.DAEV.value] = 1
+                self.dirty_flags[TCAFields.DAEP.value] = 1
+                self.dirty_flags[TCAFields.DAEP2.value] = 1
+                self.dirty_flags[TCAFields.DAEP3.value] = 1
 
         # Check to see if the data portion of the data area is now clean
         if self.last_read_dp is not None and (sum(self.dirty_flags) == 0):
