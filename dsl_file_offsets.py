@@ -5,6 +5,7 @@ All requests employed in down stream loading use a one byte file identifier.
 
 import os
 import sys
+from collections import namedtuple
 
 START = 0x0a
 STEP = 0x0a
@@ -21,16 +22,16 @@ if DUMP_FILES:
     except FileExistsError:
         pass
 
+list_ = []
+
 with open(sys.argv[1], mode='rb') as dsl:
     content = dsl.read()
     for i in range(0x40):
+        entry = namedtuple('entry', ['id', 'offset', 'length'])
         offset = int.from_bytes(content[START+STEP*i:START+STEP*i+4])
         length = int.from_bytes(content[START+STEP*i+4:START+STEP*i+8])
+        list_.append(entry(i+1, offset, length))
         end = offset + length
-        print(f"File 0x{i+1:02x}: "
-              f"Offset: 0x{offset:08x} "
-              f"Length: 0x{length:08x} "
-              f"End: 0x{end:08x}")
 
         if DUMP_FILES:
             if offset == 0x0:
@@ -39,3 +40,24 @@ with open(sys.argv[1], mode='rb') as dsl:
             with open(f"tmp/{i+1:02x}", mode='wb') as file:
                 subfile = content[offset:end]
                 file.write(subfile)
+
+
+for i, v in enumerate(list_):
+    if v.offset == 0x0 and v.length == 0x0:
+        print(f"id: 0x{v.id:02x}: ---")
+        continue
+
+    print(f"id: 0x{v.id:02x}: "
+          f"Offset: 0x{v.offset:09x} "
+          f"Length: 0x{v.length:09x} "
+          f"End: 0x{v.offset + v.length:09x}", end="")
+
+    if i > 0:
+        x = 1
+        while list_[i-x].offset == 0x0 and list_[i-x].length == 0x0:
+            x = x + 1
+
+        if v.offset != list_[i-x].offset + list_[i-x].length:
+            print(" Offset!", end="")
+
+    print()
